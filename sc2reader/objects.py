@@ -16,7 +16,7 @@ class DepotFile(object):
     url_template = 'http://{0}.depot.battle.net:1119/{1}.{2}'
 
     def __init__(self, bytes):
-        self.server = bytes[4:8].strip('\x00 ')
+        self.server = bytes[4:8].decode('utf-8').strip('\x00 ')
         self.hash = bytes[8:].encode('hex')
         self.type = bytes[0:4]
 

@@ -159,6 +159,8 @@ Complete Reference Guide
 POST-Parse filtering vs preparse filtering?
 POST-Parse, how to do it?!?!?!?!
 '''
+from __future__ import print_function
+
 import argparse
 import cPickle
 import os
@@ -356,12 +358,12 @@ def reset(args):
     elif not os.path.isdir(args.dest):
         exit("Cannot reset, destination must be directory: {0}", args.dest)
 
-    print 'About to reset directory: {0}\nAll files and subdirectories will be removed.'.format(args.dest)
+    print('About to reset directory: {0}\nAll files and subdirectories will be removed.'.format(args.dest))
     choice = raw_input('Proceed anyway? (y/n) ')
     if choice.lower() == 'y':
         args.log.write('Removing old directory: {0}\n'.format(args.dest))
         if not args.dryrun:
-            print args.dest
+            print(args.dest)
             shutil.rmtree(args.dest)
     else:
         sys.exit("Script Aborted")
@@ -498,7 +500,7 @@ def main():
     try:
         run(parser.parse_args())
     except KeyboardInterrupt as e:
-        print "\n\nScript Interupted. Process Aborting"
+        print("\n\nScript Interupted. Process Aborting")
 
 if __name__ == '__main__':
     main()

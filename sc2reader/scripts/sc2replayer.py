@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 
 import sys, os, re
 # import termios
@@ -54,11 +55,11 @@ def main():
     args = get_args()
     for filename in sc2reader.utils.get_files(args.FILE):
         replay = sc2reader.load_replay(filename,debug=True)
-        print "Release {0}".format(replay.release_string)
-        print "{0} on {1}".format(replay.type,replay.map)
+        print("Release {0}".format(replay.release_string))
+        print("{0} on {1}".format(replay.type,replay.map))
         for player in replay.players:
-            print player
-        print "\n--------------------------\n\n"
+            print(player)
+        print("\n--------------------------\n\n")
 
         # Allow picking of the player to 'watch'
         if args.player:
@@ -90,10 +91,10 @@ def main():
                 '''
                 if isinstance(event, SelectionEvent) or isinstance(event, HotkeyEvent):
                 '''
-                print event
+                print(event)
                 #myGetch()
                 if args.bytes:
-                    print "\t"+event.bytes.encode('hex')
+                    print("\t"+event.bytes.encode('hex'))
 
                 if re.search('UNKNOWN|ERROR', str(event)):
                     myGetch()

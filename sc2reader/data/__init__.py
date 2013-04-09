@@ -5,21 +5,21 @@ import pkgutil
 from sc2reader.log_utils import loggable
 
 ABIL_LOOKUP = dict()
-for entry in pkgutil.get_data('sc2reader.data', 'ability_lookup.csv').split('\n'):
+for entry in pkgutil.get_data('sc2reader.data', 'ability_lookup.csv').decode('utf-8').split('\n'):
     if not entry: continue
     str_id, abilities = entry.split(',',1)
     ABIL_LOOKUP[str_id] = abilities.split(',')
 
 UNIT_LOOKUP = dict()
-for entry in pkgutil.get_data('sc2reader.data', 'unit_lookup.csv').split('\n'):
+for entry in pkgutil.get_data('sc2reader.data', 'unit_lookup.csv').decode('utf-8').split('\n'):
     if not entry: continue
     str_id, title = entry.strip().split(',')
     UNIT_LOOKUP[str_id] = title
 
-unit_data = pkgutil.get_data('sc2reader.data', 'unit_info.json')
+unit_data = pkgutil.get_data('sc2reader.data', 'unit_info.json').decode('utf-8')
 unit_lookup = json.loads(unit_data)
 
-command_data = pkgutil.get_data('sc2reader.data', 'train_commands.json')
+command_data = pkgutil.get_data('sc2reader.data', 'train_commands.json').decode('utf-8')
 train_commands = json.loads(command_data)
 
 class Unit(object):
@@ -114,7 +114,7 @@ class Build(object):
             self.logger.error("Unable to change type of {0} to {1}; unit type not found in build {2}".format(unit,hex(new_type),self.id))
 
     def add_ability(self, ability_id, name, title=None, is_build=False, build_time=None, build_unit=None):
-        ability = type(name,(Ability,), dict(
+        ability = type(str(name),(Ability,), dict(
             id=ability_id,
             name=name,
             title=title or name,
@@ -126,7 +126,7 @@ class Build(object):
         self.abilities[ability_id] = ability
 
     def add_unit_type(self, type_id, name, title=None, race='Neutral', minerals=0, vespene=0, supply=0, is_building=False, is_worker=False, is_army=False):
-        unit = type(name,(Unit,), dict(
+        unit = type(str(name),(Unit,), dict(
             id=type_id,
             name=name,
             title=title or name,
@@ -145,7 +145,7 @@ def load_build(expansion, version):
     build = Build(version)
 
     unit_file = '{0}/{1}_units.csv'.format(expansion,version)
-    for entry in pkgutil.get_data('sc2reader.data', unit_file).split('\n'):
+    for entry in pkgutil.get_data('sc2reader.data', unit_file).decode('utf-8').split('\n'):
         if not entry: continue
         int_id, str_id = entry.strip().split(',')
         unit_type = int(int_id,10)
@@ -162,7 +162,7 @@ def load_build(expansion, version):
 
     abil_file = '{0}/{1}_abilities.csv'.format(expansion,version)
     build.add_ability(ability_id=0, name='RightClick', title='Right Click')
-    for entry in pkgutil.get_data('sc2reader.data', abil_file).split('\n'):
+    for entry in pkgutil.get_data('sc2reader.data', abil_file).decode('utf-8').split('\n'):
         if not entry: continue
         int_id_base, str_id = entry.strip().split(',')
         int_id_base = int(int_id_base,10) << 5

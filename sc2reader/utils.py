@@ -109,7 +109,16 @@ class Color(object):
     def __str__(self):
         return self.name
 
+
+
 def extract_data_file(data_file, archive):
+
+    def recovery_attempt():
+        try:
+            return archive.read_file(data_file)
+        except Exception:
+            return None
+
     # Wrap all mpyq related exceptions so they can be distinguished
     # from other sc2reader issues later on.
     try:
@@ -127,18 +136,17 @@ def extract_data_file(data_file, archive):
         try:
             file_data = archive.read_file(data_file, force_decompress=True)
         except Exception as e:
-            exc_info = sys.exc_info()
-            try:
-                file_data = archive.read_file(data_file)
-            except Exception as e:
-                # raise the original exception
-                raise exc_info[1], None, exc_info[2]
+            file_data = recovery_attempt()
+            if file_data == None:
+                raise
 
         return file_data
 
     except Exception as e:
-        trace = sys.exc_info()[2]
-        raise MPQError("Unable to extract file: {0}".format(data_file),e), None, trace
+        # Python2 and Python3 handle wrapped exceptions with old tracebacks in incompatible ways
+        # Python3 handles it by default and Python2's method won't compile in python3
+        # Since the underlying traceback isn't important to most people, don't expose it in python2 anymore
+        raise MPQError("Unable to extract file: {0}".format(data_file),e)
 
 def merged_dict(a, b):
     c = a.copy()

@@ -152,7 +152,7 @@ REGIONS = {
 
 
 import pkgutil, json
-attributes_json = pkgutil.get_data('sc2reader.data', 'attributes.json')
+attributes_json = pkgutil.get_data('sc2reader.data', 'attributes.json').decode('utf-8')
 attributes_dict = json.loads(attributes_json)
 LOBBY_PROPERTIES = dict()
 for key, value in attributes_dict.get('attributes',dict()).items():

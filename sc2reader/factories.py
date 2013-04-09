@@ -1,15 +1,28 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
+
+try:
+    unicode
+except NameError:
+    basestring = unicode = str
 
 import os
+import sys
 import re
 
-import urllib2
-from cStringIO import StringIO
+if sys.version_info.major < 3:
+    from urllib2 import urlopen
+    from urlparse import urlparse
+else:
+    from urllib.request import urlopen
+    from urllib.parse import urlparse
+
+
+from io import BytesIO
 
 from collections import defaultdict
 
-import urlparse, time
+import time
 from sc2reader import utils
 from sc2reader import log_utils
 from sc2reader.objects import DepotFile
@@ -175,7 +188,7 @@ class SC2Factory(object):
 
     def load_remote_resource_contents(self, resource, **options):
         self.logger.info("Fetching remote resource: "+resource)
-        return urllib2.urlopen(resource).read()
+        return urlopen(resource).read()
 
     def load_local_resource_contents(self, location, **options):
         # Extract the contents so we can close the file
@@ -198,20 +211,20 @@ class SC2Factory(object):
                 location = os.path.join(directory, resource)
                 contents = self.load_local_resource_contents(location, **options)
 
-            # StringIO implements a fuller file-like object
+            # BytesIO implements a fuller file-like object
             resource_name = resource
-            resource = StringIO(contents)
+            resource = BytesIO(contents)
 
         else:
             # Totally not designed for large files!!
-            # We need a multiread resource, so wrap it in StringIO
+            # We need a multiread resource, so wrap it in BytesIO
             if not hasattr(resource,'seek'):
-                resource = StringIO(resource.read())
+                resource = BytesIO(resource.read())
 
             resource_name = getattr(resource, 'name', 'Unknown')
 
         if options.get('verbose', None):
-            print resource_name
+            print(resource_name)
 
         return (resource, resource_name)
 
@@ -220,7 +233,7 @@ class CachedSC2Factory(SC2Factory):
     def get_remote_cache_key(self, remote_resource):
         # Strip the port and use the domain as the bucket
         # and use the full path as the key
-        parseresult = urlparse.urlparse(remote_resource)
+        parseresult = urlparse(remote_resource)
         bucket = re.sub(r':.*', '', parseresult.netloc)
         key = parseresult.path.strip('/')
         return (bucket, key)

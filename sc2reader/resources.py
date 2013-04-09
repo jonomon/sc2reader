@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
+
+try:
+    unicode
+except NameError:
+    basestring = unicode = str
 
 import sys
 
@@ -9,11 +14,9 @@ import hashlib
 import collections
 from datetime import datetime
 import time
-from StringIO import StringIO
 from collections import defaultdict, deque, namedtuple
 from xml.etree import ElementTree
 
-import urllib2
 from mpyq import MPQArchive
 
 import mpyq
@@ -240,12 +243,14 @@ class Replay(Resource):
             try:
                 self.archive = mpyq.MPQArchive(replay_file, listfile=False)
             except Exception as e:
-                trace = sys.exc_info()[2]
-                raise exceptions.MPQError("Unable to construct the MPQArchive",e), None, trace
+                # Python2 and Python3 handle wrapped exceptions with old tracebacks in incompatible ways
+                # Python3 handles it by default and Python2's method won't compile in python3
+                # Since the underlying traceback isn't important to most people, don't expose it in python2 anymore
+                raise exceptions.MPQError("Unable to construct the MPQArchive",e)
 
             header_content = self.archive.header['user_data_header']['content']
             header_data = BitPackedDecoder(header_content).read_struct()
-            self.versions = header_data[1].values()
+            self.versions = list(header_data[1].values())
             self.frames = header_data[3]
             self.build = self.versions[4]
             self.release_string = "{0}.{1}.{2}.{3}".format(*self.versions[1:5])

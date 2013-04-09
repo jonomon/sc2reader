@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-from cStringIO import StringIO
+
+from io import BytesIO
 
 import struct
 import functools
@@ -27,10 +28,10 @@ class ByteDecoder(object):
         else:
             self._contents = contents
 
-        self._buffer = StringIO(self._contents)
+        self._buffer = BytesIO(self._contents)
         self.length = len(self._contents)
 
-        # Expose the basic StringIO interface
+        # Expose the basic BytesIO interface
         self.read = self._buffer.read
         self.seek = self._buffer.seek
         self.tell = self._buffer.tell
@@ -107,7 +108,7 @@ class BitPackedDecoder(object):
 
     #: Maps bit shifts to high and low bit masks. Used for
     #: joining bytes when we are not byte aligned.
-    _bit_masks = zip(_lo_masks, _hi_masks)
+    _bit_masks = list(zip(_lo_masks, _hi_masks))
 
     def __init__(self, contents):
         self._buffer = ByteDecoder(contents, endian='BIG')
@@ -243,7 +244,7 @@ class BitPackedDecoder(object):
 
         # Then grab any additional whole bytes as needed
         if bits >= 8:
-            bytes = bits/8
+            bytes = int(bits/8)
 
             if bytes == 1:
                 bits -= 8
@@ -291,7 +292,7 @@ class BitPackedDecoder(object):
         datatype = self.read_uint8() if datatype == None else datatype
 
         if datatype == 0x00: # array
-            data = [self.read_struct() for i in xrange(self.read_vint())]
+            data = [self.read_struct() for i in range(self.read_vint())]
 
         elif datatype == 0x01: # bitarray, weird alignment requirements
             bits = self.read_vint()
@@ -312,7 +313,7 @@ class BitPackedDecoder(object):
         elif datatype == 0x05: # Struct
             data = dict()
             entries = self.read_vint()
-            for i in xrange(entries):
+            for i in range(entries):
                 key = self.read_vint() # Must be read first
                 data[key] = self.read_struct()
 

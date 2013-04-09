@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+from __future__ import print_function
 
 from sc2reader.utils import Length
 from sc2reader.data import Unit
@@ -239,8 +240,8 @@ class TargetAbilityEvent(AbilityEvent):
         """ Disabled since this seems to have gone out of bounds
             sc2reader/ggtracker/204927.SC2Replay
         if self.target_owner_id:
-            print replay.people
-            print self.target_owner_id
+            print(replay.people)
+            print(self.target_owner_id)
             self.target_owner = replay.player[self.target_owner_id]
         """
 

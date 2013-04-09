@@ -749,7 +749,7 @@ class GameEventsReader_16561(GameEventsReader_16117):
             data.read_bytes(2)
             unit = (data.read_uint32(), data.read_uint16())
             if fstamp == 9007 or unit[0] == 0x94880002:
-                print fstamp, hex(unit[0])
+                print(fstamp+" "+hex(unit[0]))
             if self.ABILITY_TEAM_FLAG and data.read_bool():
                 team = data.read_bits(4)
 
