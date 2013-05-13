@@ -1,6 +1,6 @@
 # Encoding: UTF-8
 
-# Run tests with "py.test" in the project root dir
+# Run tests with "py.test test_replays" in the project root dir
 import os
 import sys
 import pytest
@@ -11,7 +11,7 @@ root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../")
 sys.path.insert(0, os.path.normpath(root_dir))
 
 import sc2reader
-from sc2reader.plugins.replay import APMTracker, SelectionTracker, toJSON
+from sc2reader.engine.plugins import ContextLoader, APMTracker, SelectionTracker
 
 sc2reader.log_utils.log_to_console("INFO")
 
@@ -282,14 +282,17 @@ def test_cn_replays():
 
 
 def test_plugins():
-    factory = sc2reader.factories.SC2Factory()
-    factory.register_plugin("Replay", APMTracker())
-    factory.register_plugin("Replay", SelectionTracker())
-    factory.register_plugin("Replay", toJSON())
-    replay = factory.load_replay("test_replays/2.0.5.25092/cn1.SC2Replay")
+    replay = sc2reader.load_replay(
+        "test_replays/2.0.5.25092/cn1.SC2Replay",
+        engine=sc2reader.engine.GameEngine(plugins=[
+            ContextLoader(),
+            APMTracker(),
+            SelectionTracker(),
+        ])
+    )
 
     # Load and quickly check the JSON output consistency
-    result = json.loads(replay)
+    result = json.loads(sc2reader.utils.toJSON(replay))
     assert result["map_name"] == u"生化实验区"
     assert result["players"][2]["name"] == "ImYoonA"
     assert result["players"][2]["avg_apm"] == 84.52332657200812

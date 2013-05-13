@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import sys, os
 
 # import submodules
-from sc2reader import plugins, data, scripts
+from sc2reader import engine
 from sc2reader import factories, log_utils
 
 # setup the library logging

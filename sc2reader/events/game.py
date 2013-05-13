@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 from sc2reader.data import Unit
+from sc2reader.utils import Length
 from sc2reader.events.base import Event
 from sc2reader.log_utils import loggable
 
@@ -11,8 +12,17 @@ from itertools import chain
 class GameEvent(Event):
     name = 'GameEvent'
     def __init__(self, frame, pid):
-        super(GameEvent, self).__init__(frame, pid)
+        self.pid = pid
+        self.frame = frame
+        self.second = frame >> 4
         self.is_local = (pid != 16)
+
+    def _str_prefix(self):
+        player_name = self.player.name if getattr(self,'pid', 16)!=16 else "Global"
+        return "%s\t%-15s " % (Length(seconds=int(self.frame/16)), player_name)
+
+    def __str__(self):
+        return self._str_prefix() + self.name
 
 
 class GameStartEvent(GameEvent):
@@ -69,8 +79,11 @@ def create_command_event(frame, pid, data):
     elif ability_type == 'Data':
         return SelfAbilityEvent(frame, pid, data)
 
+class PlayerActionEvent(GameEvent):
+    name = 'PlayerActionEvent'
+
 @loggable
-class AbilityEvent(GameEvent):
+class AbilityEvent(PlayerActionEvent):
     name = 'AbilityEvent'
     is_player_action = True
     def __init__(self, frame, pid, data):
@@ -150,41 +163,6 @@ class AbilityEvent(GameEvent):
         #: A reference to the other unit
         self.other_unit = None
 
-    def load_context(self, replay):
-        super(AbilityEvent, self).load_context(replay)
-
-        if not replay.datapack:
-            return
-
-        if self.ability_id not in replay.datapack.abilities:
-            if not getattr(replay, 'marked_error', None):
-                replay.marked_error=True
-                self.logger.error(replay.filename)
-                self.logger.error("Release String: "+replay.release_string)
-                for player in replay.players:
-                    self.logger.error("\t"+str(player))
-
-            self.logger.error("{0}\t{1}\tMissing ability {2:X} from {3}".format(self.frame, self.player.name, self.ability_id, replay.datapack.__class__.__name__))
-
-        else:
-            self.ability = replay.datapack.abilities[self.ability_id]
-            self.ability_name = self.ability.name
-
-
-        if self.ability_type == 'TargetUnit':
-            if self.target_unit_id in replay.objects:
-                self.target = replay.objects[self.target_unit_id]
-                if not self.target.is_type(self.target_unit_type):
-                    replay.datapack.change_type(self.target, self.target_unit_type, self.frame)
-            else:
-                unit = replay.datapack.create_unit(self.target_unit_id, self.target_unit_type, 0x00, self.frame)
-                self.target = unit
-                replay.objects[self.target_unit_id] = unit
-
-        if self.other_unit_id in replay.objects:
-            self.other_unit = replay.objects[self.other_unit_id]
-        elif self.other_unit_id != None:
-            print "Other unit {0} not found".format(self.other_unit_id)
 
     def __str__(self):
         string = self._str_prefix()
@@ -213,7 +191,7 @@ class SelfAbilityEvent(AbilityEvent):
     name = 'SelfAbilityEvent'
 
 @loggable
-class SelectionEvent(GameEvent):
+class SelectionEvent(PlayerActionEvent):
     name = 'SelectionEvent'
     is_player_action = True
     def __init__(self, frame, pid, data):
@@ -254,30 +232,6 @@ class SelectionEvent(GameEvent):
         #: Deprecated, see new_units
         self.objects = None
 
-    def load_context(self, replay):
-        super(SelectionEvent, self).load_context(replay)
-
-        if not replay.datapack:
-            return
-
-        units = list()
-        for (unit_id, unit_type, subgroup, intra_subgroup) in self.new_unit_info:
-            # Hack that defaults viking selection to fighter mode instead of assault
-            if replay.versions[1] == 2 and replay.build >= 23925 and unit_type == 71:
-                unit_type = 72
-
-            if unit_id in replay.objects:
-                unit = replay.objects[unit_id]
-                if not unit.is_type(unit_type):
-                    replay.datapack.change_type(unit, unit_type, self.frame)
-            else:
-                unit = replay.datapack.create_unit(unit_id, unit_type, 0x00, self.frame)
-                replay.objects[unit_id] = unit
-
-            units.append(unit)
-
-        self.new_units = self.objects = units
-
     def __str__(self):
         if self.new_units:
             return GameEvent.__str__(self)+str([str(u) for u in self.new_units])
@@ -295,7 +249,7 @@ def create_control_group_event(frame, pid, data):
         return GetFromHotkeyEvent(frame, pid, data)
 
 @loggable
-class HotkeyEvent(GameEvent):
+class HotkeyEvent(PlayerActionEvent):
     name = 'HotkeyEvent'
     is_player_action = True
     def __init__(self, frame, pid, data):
@@ -306,6 +260,9 @@ class HotkeyEvent(GameEvent):
 
         #: Deprecated, use control_group
         self.bank = self.control_group
+
+        #: Deprecated, use control_group
+        self.hotkey = self.control_group
 
         #: The type of update being performed, 0 (set),1 (add),2 (get)
         self.update_type = data['control_group_update']
@@ -389,11 +346,6 @@ class ResourceTradeEvent(GameEvent):
 
     def __str__(self):
         return self._str_prefix() + " transfer {0} minerals, {1} gas, {2} terrazine, and {3} custom to {4}" % (self.minerals, self.vespene, self.terrazine, self.custom, self.reciever)
-
-    def load_context(self, replay):
-        super(ResourceTradeEvent, self).load_context(replay)
-        self.sender = self.player
-        self.recipient = replay.players[self.recipient_id]
 
 
 class ResourceRequestEvent(GameEvent):
