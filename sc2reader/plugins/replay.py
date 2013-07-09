@@ -1,4 +1,4 @@
-l# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
 import json
@@ -129,12 +129,10 @@ def CreepTracker(replay):
     a list organised by time which contains a list of CGUs that are
     alive
 
-    
-   
     '''
-    from itertools import izip_longest, dropwhile
-    from random import random
-    from math import sqrt, pi
+    from itertools import dropwhile
+
+    from sets import Set
     
     def add_to_list(player_id,unit_id,unit_location,\
                 unit_type,event_time, creep_generating_units_list):
@@ -151,94 +149,37 @@ def CreepTracker(replay):
             previous_list.append((unit_id, unit_location,unit_type,event_time))
             creep_generating_units_list[player_id].append(previous_list)
 
-                                                
-    def in_circles(point_x,point_y,cgu_radius):
-        for cgu in cgu_radius:
-            circle_x = cgu[0][0]
-            circle_y = cgu[0][1]
-            radius = cgu[1]
-            distance = (circle_x-point_x)**2 + (circle_y-point_y)**2
-            if distance < (radius*radius):
-                return 1
-        return 0
-
-    def distance(point1,point2):
-        distance = (point1[0]-point2[0])**2  + (point1[1]-point2[1])**2
-        return distance
-
     def calculate_area(cgu_radius):
-        if len(cgu_radius)==1:
-            return pi*(cgu_radius[0][1]**2)
+        print cgu_radius
+
+    def radius_to_map_positions(radius):
+        ## this function converts all radius into map coordinates
+        ## centred around  the origin that the creep can exist
+        ## the cgu_radius_to_map_position function will simply
+        ## substract every coordinate with the centre point of the tumour
+
+        output_coordinates = list()
+        # Sample a square area using the radius
+        for x in range (-radius,radius):
+            for y in range (-radius, radius):
+                if (x**2 + y**2) < (radius * radius):
+                    output_coordinates.append( (x,y) )
+
+        return output_coordinates
         
-         # from cgu_radius get a square which surrounds maximum
-            # possible area that the creep lies in           
-        max_x = max(cgu_radius, key=lambda x: x[0][0]+x[1])
-        max_y = max(cgu_radius, key=lambda x: x[0][1]+x[1])
-        min_x =  min(cgu_radius, key=lambda x: x[0][0] - x[1])
-        min_y =  min(cgu_radius, key=lambda x: x[0][1] - x[1])
-
-        max_x = max_x[0][0] + max_x[1]
-        max_y = max_y[0][1] + max_y[1]
-        min_x = min_x[0][0] - min_x[1]
-        min_y = min_y[0][1] - min_y[1]
-
-        area = 0
-        for x in range(min_x,max_x):
-            for y in range(min_y,max_y):
-                if in_circles(x,y,cgu_radius):
-                        area+=1
-        return area
-        
-
-    def single_linkage_clustering(cgu_points, maxR,labels=0,cgu_length = 0):
-        inf = -1000
-        if labels==0:
-            labels = [0 for x in cgu_points]
-            cgu_length = len(cgu_points)
-        if len(cgu_points) ==1:
-            return [0]
-        
-        # calculate distance array
-        distance_array = list()
-        for i in range (len(cgu_points)):
-            i_lengths = list()
-            for j in range(len(cgu_points)):
-                if i !=j:
-                    if cgu_points[i][0] == inf and cgu_points [j][0] == inf:
-                        i_lengths.append(-inf)
-                    else:
-                        i_lengths.append(distance(cgu_points[i], cgu_points[j]))
-                
-            distance_array.append(i_lengths)
-        
-        #Find closest point distance for each point
-        min_array = map(lambda x:min(x), distance_array)
-
-        #combine 2 points with smallest distance
-        min_distance = min(min_array)
-        if min_distance < maxR:
-            point1 = min_array.index(min_distance)
-            point2 = min_array[point1+1:].index(min_distance)+point1+1
-            #label each cgu points
-            current_label = max(labels)+1 if labels[point1] ==0 and\
-                             labels[point2] ==0 else max(labels[point1],labels[point2])
-            labels[point1] = current_label
-            labels[point2] = current_label
-            labels.append(current_label)
-
-            new_x = (cgu_points[point1][0] + cgu_points[point2][0])/2
-            new_y = (cgu_points[point1][1] + cgu_points[point2][1])/2
-            cgu_points[point1]=(inf,inf)
-            cgu_points[point2]=(inf,inf)
-            cgu_points.append((new_x,new_y))
+    def cgu_radius_to_map_positions(cgu_radius,radius_to_coordinates):
+    ## This function uses the output of radius_to_map_positions
+        total_points_on_map = Set()
+        for cgu in cgu_radius:
+            point = cgu[0]
+            radius = cgu[1]
+            ## subtract all radius_to_coordinates with centre of
+            ## cgu radius to change centre of circle 
+            cgu_map_position = map( lambda x: (x[0]- point[0], x[1] -  point[1])\
+                            ,radius_to_coordinates[radius])
+            total_points_on_map= total_points_on_map | Set(cgu_map_position)
+        return len(total_points_on_map)   
             
-            labels = single_linkage_clustering(cgu_points,maxR,labels,cgu_length)
-            return labels[0:cgu_length]
-        else:
-            return_value = labels[0:cgu_length]
-            return return_value
-        
-    
     #Get Map Size
     mapinfo = replay.map.archive.read_file('MapInfo')
     mapSizeX = ord(mapinfo[16])
@@ -296,8 +237,7 @@ def CreepTracker(replay):
     #the creep_generating_units_lists contains every single time frame
     #where a CGU is added,
     #To reduce the calculations required, the time frame containing
-    #the largest number of CGUs every minute will be used
-   
+    #the last CGUs per minute will be used
     for player_id in replay.player:
         last_minute_found = 0
         cgu_per_player_new = list()
@@ -311,34 +251,39 @@ def CreepTracker(replay):
                 cgu_per_player_new.append(cgu_per_player)
         creep_generating_units_list[player_id] = cgu_per_player_new
 
-    # for player_id in replay.player:
-    #      for cgu in creep_generating_units_list[player_id]:
-    #          print cgu
+
+    ## convert all radii into a sets centred around the origin,
+    ## in order to use this with the CGUs, the centre point will be
+    ## subtracted with all values in the set
+     
+    unit_name_to_radius = {'CreepTumor': 15, "Hatchery":17,
+        "GenerateCreep": 10, "Nydus": 5 }
+
+    radius_to_coordinates= dict()
+    for x in unit_name_to_radius:
+         radius_to_coordinates[unit_name_to_radius[x]] =\
+         radius_to_map_positions(unit_name_to_radius[x])
 
     max_creep_spread=defaultdict()
     for player_id in replay.player:
-        # convert cg u list into centre of circles and radius
-        unit_name_to_radius = {'CreepTumor': 15, "Hatchery":17,\
-                            "GenerateCreep": 10, "Nydus": 5 }
-        
+
         max_creep_spread[player_id] = 0
         
-        for index,cgu_per_player in enumerate(creep_generating_units_list[player_id]):
-            
+        for cgu_per_player in creep_generating_units_list[player_id]:
+            # convert cgu list into centre of circles and radius
             cgu_radius = map(lambda x: (x[1],   unit_name_to_radius[x[2]]),\
                                   cgu_per_player)
+            creep_area = cgu_radius_to_map_positions(cgu_radius,radius_to_coordinates)
 
-            area = calculate_area(cgu_radius)
             cgu_last_event_time = cgu_per_player[-1][3]/60
 
-            replay.player[player_id].creep_spread_by_minute[cgu_last_event_time] = area/mapSize
+            replay.player[player_id].creep_spread_by_minute[cgu_last_event_time] = creep_area/mapSize
 
-            if area>max_creep_spread[player_id]:
-                 max_creep_spread[player_id] =area
+            if creep_area>max_creep_spread[player_id]:
+                  max_creep_spread[player_id] =creep_area
 
-
-    for player in replay.player:
-        replay.player[player].max_creep_spread = max_creep_spread[player]/mapSize
+    for player_id in replay.player:
+        replay.player[player_id].max_creep_spread = max_creep_spread[player_id]/mapSize
 
     return replay 
 
