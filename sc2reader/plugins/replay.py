@@ -131,14 +131,12 @@ def CreepTracker(replay):
 
     '''
     from itertools import dropwhile
-
     from sets import Set
     
     def add_to_list(player_id,unit_id,unit_location,\
                 unit_type,event_time, creep_generating_units_list):
     # This functions adds a new time frame to creep_generating_units_list
     # Each time frame contains a list of all CGUs that are alive
-    
         length_cgu_list = len(creep_generating_units_list[player_id])
         if length_cgu_list==0:
             creep_generating_units_list[player_id].append([(unit_id, unit_location,unit_type,event_time)])
@@ -148,9 +146,6 @@ def CreepTracker(replay):
             previous_list = creep_generating_units_list[player_id][length_cgu_list-1][:]
             previous_list.append((unit_id, unit_location,unit_type,event_time))
             creep_generating_units_list[player_id].append(previous_list)
-
-    def calculate_area(cgu_radius):
-        print cgu_radius
 
     def radius_to_map_positions(radius):
         ## this function converts all radius into map coordinates
@@ -163,8 +158,7 @@ def CreepTracker(replay):
         for x in range (-radius,radius):
             for y in range (-radius, radius):
                 if (x**2 + y**2) < (radius * radius):
-                    output_coordinates.append( (x,y) )
-
+                    output_coordinates.append((x,y))
         return output_coordinates
         
     def cgu_radius_to_map_positions(cgu_radius,radius_to_coordinates):
@@ -184,7 +178,7 @@ def CreepTracker(replay):
     mapinfo = replay.map.archive.read_file('MapInfo')
     mapSizeX = ord(mapinfo[16])
     mapSizeY = ord(mapinfo[20])
-    mapSize = mapSizeX * mapSizeX/100
+    mapSize = mapSizeX * mapSizeY/100
 
     creep_generating_units_list = dict()
     
@@ -202,9 +196,7 @@ def CreepTracker(replay):
     for event in replay.events: #izip_longest(replay.tracker_events,replay.game_events):
         # Search things that generate creep
         # Tumor, hatcheries, nydus and overlords generating creep
-
         if event.name == "UnitInitEvent":
-            
             units = ["CreepTumor", "Hatchery","Nydus"] # check nydus name
             if event.unit_type_name in units:
                 add_to_list(event.control_pid,event.unit_id,\
@@ -212,7 +204,6 @@ def CreepTracker(replay):
                             event.unit_type_name,\
                             event.second,\
                             creep_generating_units_list)
-
         if event.name == "AbilityEvent":
             if event.ability_name == "GenerateCreep":
                 add_to_list(event.control_pid,event.unit_id,\
@@ -220,7 +211,6 @@ def CreepTracker(replay):
                             event.unit_type_name,\
                             event.second,\
                             creep_generating_units_list)
-                        
      # Removes creep generating units that were destroyed
         if event.name == "UnitDiedEvent":
             for player_id in creep_generating_units_list:
@@ -245,7 +235,6 @@ def CreepTracker(replay):
             if len(cgu_per_player) ==0:
                 continue
             cgu_last_event_time = cgu_per_player[-1][3]
-        
             if (cgu_last_event_time/60)>last_minute_found:
                 last_minute_found = cgu_last_event_time/60
                 cgu_per_player_new.append(cgu_per_player)
@@ -256,8 +245,8 @@ def CreepTracker(replay):
     ## in order to use this with the CGUs, the centre point will be
     ## subtracted with all values in the set
      
-    unit_name_to_radius = {'CreepTumor': 15, "Hatchery":17,
-        "GenerateCreep": 10, "Nydus": 5 }
+    unit_name_to_radius = {'CreepTumor': 20, "Hatchery":17,
+        "GenerateCreep": 12, "Nydus": 8 }
 
     radius_to_coordinates= dict()
     for x in unit_name_to_radius:
@@ -266,24 +255,18 @@ def CreepTracker(replay):
 
     max_creep_spread=defaultdict()
     for player_id in replay.player:
-
         max_creep_spread[player_id] = 0
-        
-        for cgu_per_player in creep_generating_units_list[player_id]:
+        for index,cgu_per_player in enumerate(creep_generating_units_list[player_id]):
             # convert cgu list into centre of circles and radius
             cgu_radius = map(lambda x: (x[1],   unit_name_to_radius[x[2]]),\
                                   cgu_per_player)
             creep_area = cgu_radius_to_map_positions(cgu_radius,radius_to_coordinates)
-
             cgu_last_event_time = cgu_per_player[-1][3]/60
-
             replay.player[player_id].creep_spread_by_minute[cgu_last_event_time] = creep_area/mapSize
-
             if creep_area>max_creep_spread[player_id]:
-                  max_creep_spread[player_id] =creep_area
-
+                  max_creep_spread[player_id] =creep_area/mapSize
     for player_id in replay.player:
-        replay.player[player_id].max_creep_spread = max_creep_spread[player_id]/mapSize
+        replay.player[player_id].max_creep_spread = max_creep_spread[player_id]
 
     return replay 
 
