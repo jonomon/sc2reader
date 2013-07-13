@@ -15,7 +15,6 @@ def toJSON(replay, **user_options):
     options.update(user_options)
     return json.dumps(toDict()(replay), **options)
 
-
 @plugin
 def toDict(replay):
     # Build observers into dictionary
@@ -132,6 +131,8 @@ def CreepTracker(replay):
     '''
     from itertools import dropwhile
     from sets import Set
+    import Image
+    from StringIO import StringIO
     
     def add_to_list(player_id,unit_id,unit_location,\
                 unit_type, creep_generating_units_list):
@@ -146,6 +147,29 @@ def CreepTracker(replay):
             previous_list = creep_generating_units_list[player_id][length_cgu_list-1][:]
             previous_list.append((unit_id, unit_location,unit_type))
             creep_generating_units_list[player_id].append(previous_list)
+
+    def cameraOffset(mapinfo):
+        fogOfWarStart = mapinfo.find('Dark')
+        textureEnd = mapinfo[fogOfWarStart + 5:-1].find('\0')
+        rest = mapinfo[fogOfWarStart + 5 + textureEnd + 1: -1]
+        return ord(rest[0]), ord(rest[4])
+
+    def convert_event_coord_to_map_coord(x,y,cropsize,mapinfo):
+        mapOffsetX, mapOffsetY = cameraOffset(mapinfo)
+        mapCenter = [mapOffsetX + cropsize[0]/2.0, mapOffsetY + cropsize[1]/2.0]
+        # this is the center of the minimap image, in pixel coordinates
+        imageCenter = [50.0 * cropsize[0] / cropsize[1], 50.0]
+
+        # this is the scaling factor to go from the SC2 coordinate
+        # system to pixel coordinates
+        image_scale = 100.0 / cropsize[1]
+
+        transX = imageCenter[0] - image_scale * (mapCenter[0])
+        transY = imageCenter[1] + image_scale * (mapCenter[1])
+        
+        imageX = int(transX + image_scale * x)
+        imageY = int(transY - image_scale * y)
+        return imageX, imageY
 
     def radius_to_map_positions(radius):
         ## this function converts all radius into map coordinates
@@ -170,9 +194,43 @@ def CreepTracker(replay):
             radius = cgu[1]
             ## subtract all radius_to_coordinates with centre of
             ## cgu radius to change centre of circle 
-            cgu_map_position = map( lambda x: (x[0]- point[0], x[1] -  point[1])\
+            cgu_map_position = map( lambda x:(x[0]+point[0],x[1]+point[1])\
                             ,radius_to_coordinates[radius])
             total_points_on_map= total_points_on_map | Set(cgu_map_position)
+
+        replayMap = replay.map
+
+        # extract image
+        mapsio = StringIO(replayMap.minimap)
+        im = Image.open(mapsio)
+
+        mapinfo = replay.map.archive.read_file('MapInfo')
+        
+        cropped = im.crop(im.getbbox())
+        cropsize = cropped.size
+
+        originalSize = (100 , 100)
+        original_image = cropped.resize(originalSize, Image.ANTIALIAS)
+            
+        for points in total_points_on_map:
+            x = points[0]
+            y = points[1]
+            mapinfo = replay.map.archive.read_file('MapInfo')
+            Xal, Yal = convert_event_coord_to_map_coord(x,y,cropsize,mapinfo)
+            original_image.putpixel((Xal,Yal) , (255, 255, 255))
+            
+        creeped_image = original_image
+
+        # write creeped minimap image to a string as a png
+        finalIO = StringIO()
+        creeped_image.save(finalIO, "png")
+        im.save(finalIO, "png")
+
+        f = open('image.png','w')
+        f.write(finalIO.getvalue())
+        finalIO.close()
+        f.close()
+
         return len(total_points_on_map)   
             
     #Get Map Size
@@ -255,15 +313,17 @@ def CreepTracker(replay):
 
     ## convert all radii into a sets centred around the origin,
     ## in order to use this with the CGUs, the centre point will be
-    ## subtracted with all values in the set
-    unit_name_to_radius = {'CreepTumor': 22, "Hatchery":24,
-        "GenerateCreep": 12, "Nydus": 8 }
+    ## subtracted with all values in the 
+    unit_name_to_radius = {'CreepTumor': 20, "Hatchery":16, 
+         "GenerateCreep": 12, "Nydus": 8 }
+    # unit_name_to_radius = {'CreepTumor': 10, "Hatchery":8,
+    #     "GenerateCreep": 6, "Nydus": 4 }
 
     radius_to_coordinates= dict()
     for x in unit_name_to_radius:
          radius_to_coordinates[unit_name_to_radius[x]] =\
          radius_to_map_positions(unit_name_to_radius[x])
-
+        
     max_creep_spread=defaultdict()
     for player_id in replay.player:
         max_creep_spread[player_id] = 0
@@ -280,7 +340,6 @@ def CreepTracker(replay):
     for player_id in replay.player:
         replay.player[player_id].max_creep_spread = max_creep_spread[player_id]
     return replay 
-
 
 @plugin
 def SelectionTracker(replay):

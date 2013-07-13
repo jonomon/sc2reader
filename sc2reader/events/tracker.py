@@ -70,6 +70,9 @@ class PlayerStatsEvent(TrackerEvent):
         #: The total mineral cost of economy units (buildings?) currently being built/queued
         self.minerals_used_in_progress_economy = clamp(self.stats[6])
 
+        #: The total mineral cost of economy units (buildings?) currently being built/queued
+        self.minerals_used_in_progress_economy = clamp(self.stats[6])
+
         #: The total mineral cost of technology research (buildings?) currently being built/queued
         self.minerals_used_in_progress_technology = clamp(self.stats[7])
 
