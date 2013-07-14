@@ -86,6 +86,20 @@ class creep_tracker():
             self.creep_gen_units[player_id].append(previous_list)
             self.creep_gen_units_times[player_id].append(event_time)
 
+    def remove_from_list(self,unit_id,time_frame):
+        for player_id in self.creep_gen_units:
+            length_cgu_list = len(self.creep_gen_units[player_id])
+            if length_cgu_list ==0:
+                    break
+            cgu_per_player = self.creep_gen_units[player_id]\
+                                                   [length_cgu_list-1]
+            creep_generating_died = dropwhile(lambda x: x[0] != \
+                                                  unit_id, cgu_per_player)
+            for creep_generating_died_unit in creep_generating_died:
+                cgu_per_player.remove(creep_generating_died_unit)
+                self.creep_gen_units[player_id].append(cgu_per_player)
+                self.creep_gen_units_times[player_id].append(time_frame)
+
     def add_event(self,event):
         if event.name == "UnitBornEvent":
            if event.unit_type_name== "Hatchery":
@@ -102,20 +116,12 @@ class creep_tracker():
             if event.ability_name == "GenerateCreep":
                 self.add_to_list(event.control_pid,event.unit_id,\
                             (event.x, event.y), event.unit_type_name,event.second)
+            if event.ability_name == "StopGenerateCreep":
+                self.remove_from_list(event.unit_id,event.second)
+
      # Removes creep generating units that were destroyed
         if event.name == "UnitDiedEvent":
-            for player_id in self.creep_gen_units:
-                length_cgu_list = len(self.creep_gen_units[player_id])
-                if length_cgu_list ==0:
-                    break
-                cgu_per_player = self.creep_gen_units[player_id]\
-                                                   [length_cgu_list-1]
-                creep_generating_died = dropwhile(lambda x: x[0] != \
-                                                  event.unit_id, cgu_per_player)
-                for creep_generating_died_unit in creep_generating_died:
-                    cgu_per_player.remove(creep_generating_died_unit)
-                    self.creep_gen_units[player_id].append(cgu_per_player)
-                    self.creep_gen_units_times[player_id].append(event.second)
+            self.remove_from_list(event.unit_id,event.second)
 
     def reduce_cgu_per_minute(self,player_id):
     #the creep_gen_units_lists contains every single time frame
