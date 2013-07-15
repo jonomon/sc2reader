@@ -1,6 +1,9 @@
+from __future__ import absolute_import
+
 from itertools import dropwhile
 from sets import Set
-import Image
+from Image import open as PIL_open
+from Image import ANTIALIAS 
 from StringIO import StringIO
 from collections import defaultdict
     
@@ -31,7 +34,7 @@ class creep_tracker():
         replayMap = replay.map
         # extract image from replay package
         mapsio = StringIO(replayMap.minimap)
-        im = Image.open(mapsio)
+        im = PIL_open(mapsio)
         mapinfo = replay.map.archive.read_file('MapInfo')
         mapSizeX = ord(mapinfo[16])
         mapSizeY = ord(mapinfo[20])
@@ -45,7 +48,7 @@ class creep_tracker():
         self.map_width = int(cropsize[0] * (float(self.map_height) / cropsize[1]))
         self.mapSize =self.map_height * self.map_width 
         minimapSize = ( self.map_width,int(self.map_height) )
-        self.minimap_image = cropped.resize(minimapSize, Image.ANTIALIAS)
+        self.minimap_image = cropped.resize(minimapSize, ANTIALIAS)
         mapOffsetX, mapOffsetY = self.cameraOffset(mapinfo)
         mapCenter = [mapOffsetX + cropsize[0]/2.0, mapOffsetY + cropsize[1]/2.0]
         # this is the center of the minimap image, in pixel coordinates
