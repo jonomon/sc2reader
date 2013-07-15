@@ -125,17 +125,22 @@ def CreepTracker(replay):
     This uses the creep_tracker class to calculate the features
 
     '''
+    try:
+        replay.tracker_events
+    except AttributeError:
+        print "Replay does not have tracker events"
+        return replay
+    try:
+        replay.map
+    except AttributeError:
+        print "Map was not loaded"
+        return replay
     creepTracker  = creep_tracker(replay)
     ## Initialisation of cgus
     for player in replay.players:
         creepTracker.init_cgu_lists(player.pid)
     ## check if whether or not replay has tracker events
     ## if not, the creep spread cannot be calculated
-    try:
-        replay.tracker_events
-    except AttributeError:
-        print "Replay does not have tracker events"
-        return replay
     ##Iterate through all events. for every new creep generating units 
     ##append a new time frame into the list consisting of all active cgus  
     for event in replay.events:
@@ -176,7 +181,7 @@ def SelectionTracker(replay):
             elif event.name == 'SetToHotkeyEvent':
                 selections = player_selections[event.frame]
                 selections[event.control_group] = selections[0x0A].copy()
-                if debug: logger.info("[{0}] {1} set hotkey {2} to current selection".format(Length(seconds=event.second),person.name,event.hotkey))
+                if debug: logger.info("[{0}] {1} set hotkey {2} to current selection".format(Length(seconds=event.second),person.name,event.control_group))
 
             elif event.name == 'AddToHotkeyEvent':
                 selections = player_selections[event.frame]
@@ -184,8 +189,7 @@ def SelectionTracker(replay):
                 error = not control_group.deselect(event.mask_type, event.mask_data)
                 control_group.select(selections[0x0A].objects)
                 selections[event.control_group] = control_group
-                if debug: logger.info("[{0}] {1} added current selection to hotkey {2}".format(Length(seconds=event.second),person.name,event.hotkey))
-
+                if debug: logger.info("[{0}] {1} added current selection to hotkey {2}".format(Length(seconds=event.second),person.name,event.control_group))
             elif event.name == 'GetFromHotkeyEvent':
                 selections = player_selections[event.frame]
                 control_group = selections[event.control_group].copy()
