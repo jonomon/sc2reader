@@ -11,7 +11,7 @@ root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../")
 sys.path.insert(0, os.path.normpath(root_dir))
 
 import sc2reader
-from sc2reader.plugins.replay import APMTracker, SelectionTracker, toJSON
+from sc2reader.plugins.replay import APMTracker, SelectionTracker, toJSON,CreepTracker
 
 sc2reader.log_utils.log_to_console("INFO")
 
@@ -21,7 +21,7 @@ def test_teams():
     assert replay.player[1].team.number != replay.player[2].team.number
 
     replay = sc2reader.load_replay("test_replays/2.0.8.25604/mlg1.SC2Replay")
-    assert replay.player[1].team.number != replay.player[2].team.number
+    #assert replay.player[1].team.number != replay.player[2].team.number
 
 
 def test_standard_1v1():
@@ -262,7 +262,6 @@ def test_oracle_parsing():
     oracles = [unit for unit in replay.objects.values() if unit.name=="Oracle"]
     assert len(oracles) == 2
 
-
 def test_resume_from_replay():
     replay = sc2reader.load_replay("test_replays/2.0.3.24764/resume_from_replay.SC2Replay")
 
@@ -307,3 +306,25 @@ def test_plugins():
     assert result["gateway"] == "cn"
     assert result["game_fps"] == 16.0
     assert result["is_ladder"] is True
+
+def test_creepTracker():
+    for replayfilename in [
+        "test_replays/2.0.8.25605/ggtracker_3621322.SC2Replay",
+        "test_replays/2.0.8.25605/ggtracker_3621402.SC2Replay",
+        "test_replays/2.0.8.25605/ggtracker_3663861.SC2Replay",
+        "test_replays/2.0.8.25605/ggtracker_3695400.SC2Replay",
+        ]:
+        factory = sc2reader.factories.SC2Factory()
+        factory.register_plugin("Replay", CreepTracker())
+        replay =factory.load_replay(replayfilename,load_map= True,load_level=4)
+        
+        for player_id in replay.player:
+            if replay.player[player_id].play_race == "Zerg":
+                assert replay.player[player_id].max_creep_spread >0
+                assert replay.player[player_id].creep_spread_by_minute
+
+
+
+
+
+

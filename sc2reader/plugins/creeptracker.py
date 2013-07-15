@@ -6,6 +6,10 @@ from collections import defaultdict
     
 class creep_tracker():
     def __init__(self,replay):
+        #if the debug option is selected, minimaps will be printed to a file
+        ##and a stringIO containing the minimap image will be saved for 
+        ##every minite in the game
+        self.debug = replay.opt.debug
         self.creep_spread_by_minute = dict()
         self.creep_spread_image_by_minute = dict()
         ## This list contains all the active cgus in every time frame
@@ -16,7 +20,7 @@ class creep_tracker():
         ## convert all radii into a sets centred around the origin,
         ## in order to use this with the CGUs, the centre point will be
         ## subtracted with all values in the 
-        self.unit_name_to_radius = {'CreepTumor': 10, "Hatchery":8, 
+        self.unit_name_to_radius = {'CreepTumor': 10, "Hatchery":10, 
                                "GenerateCreep": 6, "Nydus": 4 }
         self.radius_to_coordinates= dict()
         for x in self.unit_name_to_radius:
@@ -32,23 +36,23 @@ class creep_tracker():
         mapSizeX = ord(mapinfo[16])
         mapSizeY = ord(mapinfo[20])
         ## get map size for calculating % area
-        self.mapSize = mapSizeX*mapSizeY
-        ##remove black box around minimap
+                ##remove black box around minimap
         cropped = im.crop(im.getbbox())
         cropsize = cropped.size
         self.map_height = 100.0
         # resize height to MAPHEIGHT, and compute new width that
         # would preserve aspect ratio
-        min_map_width = int(cropsize[0] * (float(self.map_height) / cropsize[1]))
-        minimapSize = ( min_map_width,int(self.map_height) )
+        self.map_width = int(cropsize[0] * (float(self.map_height) / cropsize[1]))
+        self.mapSize =self.map_height * self.map_width 
+        minimapSize = ( self.map_width,int(self.map_height) )
         self.minimap_image = cropped.resize(minimapSize, Image.ANTIALIAS)
         mapOffsetX, mapOffsetY = self.cameraOffset(mapinfo)
         mapCenter = [mapOffsetX + cropsize[0]/2.0, mapOffsetY + cropsize[1]/2.0]
         # this is the center of the minimap image, in pixel coordinates
-        imageCenter = [(min_map_width/2), self.map_height/2]
+        imageCenter = [(self.map_width/2), self.map_height/2]
         # this is the scaling factor to go from the SC2 coordinate
         # system to pixel coordinates
-        self.image_scale = (float(self.map_height) / cropsize[0] ) *0.9
+        self.image_scale = float(self.map_height) / cropsize[0] 
         self.transX =imageCenter[0] + self.image_scale * (mapCenter[0])
         self.transY = imageCenter[1] + self.image_scale * (mapCenter[1])
         
@@ -114,11 +118,10 @@ class creep_tracker():
                             (event.x, event.y), event.unit_type_name,event.second)
         if event.name == "AbilityEvent":
             if event.ability_name == "GenerateCreep":
-                self.add_to_list(event.control_pid,event.unit_id,\
+                self.add_to_list(control_pid,event.unit_id,\
                             (event.x, event.y), event.unit_type_name,event.second)
             if event.ability_name == "StopGenerateCreep":
                 self.remove_from_list(event.unit_id,event.second)
-
      # Removes creep generating units that were destroyed
         if event.name == "UnitDiedEvent":
             self.remove_from_list(event.unit_id,event.second)
@@ -143,11 +146,14 @@ class creep_tracker():
     def get_creep_spread_area(self,player_id):
         for index,cgu_per_player in enumerate(self.creep_gen_units[player_id]):
             # convert cgu list into centre of circles and radius
-            cgu_radius = map(lambda x: (x[1],   self.unit_name_to_radius[x[2]]),\
+            cgu_radius = map(lambda x: (x[1], self.unit_name_to_radius[x[2]]),\
                                   cgu_per_player)
+            # convert event coords to minimap coords
+            cgu_radius = self.convert_cgu_radius_event_to_map_coord(cgu_radius)
             creep_area_positions = self.cgu_radius_to_map_positions(cgu_radius,self.radius_to_coordinates)
             cgu_last_event_time = self.creep_gen_units_times[player_id][index]/60
-            self.print_image(creep_area_positions,player_id,cgu_last_event_time)
+            if self.debug: 
+                self.print_image(creep_area_positions,player_id,cgu_last_event_time)
             creep_area = len(creep_area_positions)
             self.creep_spread_by_minute[player_id][cgu_last_event_time]=\
                                                     float(creep_area)/self.mapSize*100
@@ -169,22 +175,42 @@ class creep_tracker():
         return total_points_on_map
 
     def print_image(self,total_points_on_map,player_id,time_stamp):
-        minimap_copy = self.minimap_image
+        minimap_copy = self.minimap_image.copy()
+        # Convert all creeped points to white
         for points in total_points_on_map:
             x = points[0]
             y = points[1]
-            Xal, Yal = self.convert_event_coord_to_map_coord(x,y)
-            minimap_copy.putpixel((Xal,Yal) , (255, 255, 255))
+            x,y = self.check_image_pixel_within_boundary(x,y)
+            minimap_copy.putpixel((x,y) , (255, 255, 255))
         creeped_image = minimap_copy
         # write creeped minimap image to a string as a png
         creeped_imageIO = StringIO()
         creeped_image.save(creeped_imageIO, "png")
         self.creep_spread_image_by_minute[player_id][time_stamp]=creeped_imageIO
-        ##debug for pring out the images
+        ##debug for print out the images
         f = open(str(player_id)+'image'+str(time_stamp)+'.png','w')
         f.write(creeped_imageIO.getvalue())
         creeped_imageIO.close()
         f.close()
+
+    def check_image_pixel_within_boundary(self,pointX, pointY):
+        if pointX <0:
+            pointX=0
+        if pointY <0:
+            pointY=0
+        pointX = int(pointX % self.map_width)
+        pointY = int(pointY % self.map_height)
+        return pointX,pointY
+
+    def convert_cgu_radius_event_to_map_coord(self,cgu_radius):
+        cgu_radius_new = list()
+        for cgu in cgu_radius:
+            x = cgu[0][0]
+            y = cgu[0][1]
+            (x,y) = self.convert_event_coord_to_map_coord(x,y)
+            cgu = ((x,y),cgu[1])
+            cgu_radius_new.append(cgu)
+        return cgu_radius_new
 
     def convert_event_coord_to_map_coord(self,x,y):
         imageX = int(self.map_height - self.transX + self.image_scale * x)
