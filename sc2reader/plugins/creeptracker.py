@@ -23,8 +23,8 @@ class creep_tracker():
         ## convert all radii into a sets centred around the origin,
         ## in order to use this with the CGUs, the centre point will be
         ## subtracted with all values in the 
-        self.unit_name_to_radius = {'CreepTumor': 10, "Hatchery":10, 
-                               "GenerateCreep": 6, "Nydus": 4 }
+        self.unit_name_to_radius = {'CreepTumor': 10, "Hatchery":8,\
+                                     "NydusCanal": 5 }
         self.radius_to_coordinates= dict()
         for x in self.unit_name_to_radius:
             self.radius_to_coordinates[self.unit_name_to_radius[x]] =\
@@ -36,10 +36,7 @@ class creep_tracker():
         mapsio = StringIO(replayMap.minimap)
         im = PIL_open(mapsio)
         mapinfo = replay.map.archive.read_file('MapInfo')
-        mapSizeX = ord(mapinfo[16])
-        mapSizeY = ord(mapinfo[20])
-        ## get map size for calculating % area
-                ##remove black box around minimap
+        ##remove black box around minimap
         cropped = im.crop(im.getbbox())
         cropsize = cropped.size
         self.map_height = 100.0
@@ -109,22 +106,16 @@ class creep_tracker():
 
     def add_event(self,event):
         if event.name == "UnitBornEvent":
-           if event.unit_type_name== "Hatchery":
-               self.add_to_list(event.control_pid, event.unit_id,\
+            if event.unit_type_name== "Hatchery":
+                self.add_to_list(event.control_pid, event.unit_id,\
                                 (event.x,event.y),event.unit_type_name,event.second)
         # Search things that generate creep
         # Tumor, hatcheries, nydus and overlords generating creep
         if event.name == "UnitInitEvent":
-            units = ["CreepTumor", "Hatchery","Nydus"] # check nydus name
+            units = ["CreepTumor", "Hatchery","NydusCanal"] 
             if event.unit_type_name in units:
                 self.add_to_list(event.control_pid,event.unit_id,\
                             (event.x, event.y), event.unit_type_name,event.second)
-        if event.name == "AbilityEvent":
-            if event.ability_name == "GenerateCreep":
-                self.add_to_list(control_pid,event.unit_id,\
-                            (event.x, event.y), event.unit_type_name,event.second)
-            if event.ability_name == "StopGenerateCreep":
-                self.remove_from_list(event.unit_id,event.second)
      # Removes creep generating units that were destroyed
         if event.name == "UnitDiedEvent":
             self.remove_from_list(event.unit_id,event.second)
@@ -133,16 +124,25 @@ class creep_tracker():
     #the creep_gen_units_lists contains every single time frame
     #where a CGU is added,
     #To reduce the calculations required, the time frame containing
-    #the last CGUs per minute will be used
+    #the most cgus every minute will be used to represent that minute
         last_minute_found = 0
         cgu_per_player_new = list()
         cgu_time_per_player_new = list()
-        for index,cgu_time in \
-                       enumerate(self.creep_gen_units_times[player_id]):
+        cgu_last_minute_list = list()
+        for index,cgu_time in enumerate(self.creep_gen_units_times[player_id]):
+            cgu_last_minute_list.append(self.creep_gen_units[player_id][index])
+            if (cgu_time/60) ==0:
+                cgu_per_player_new.append(self.creep_gen_units[player_id][0])
+                cgu_time_per_player_new.append(0)
+                cgu_last_minute_list = list()
             if (cgu_time/60)>last_minute_found:
+                cgu_max_in_min = max(cgu_last_minute_list,key = len)
+                cgu_per_player_new.append(cgu_max_in_min)
+                cgu_max_in_min_index = self.creep_gen_units[player_id].index(cgu_max_in_min)
+                cgu_time_per_player_new.append(self.creep_gen_units_times[player_id][cgu_max_in_min_index])
                 last_minute_found = cgu_time/60
-                cgu_per_player_new.append(self.creep_gen_units[player_id][index-1])
-                cgu_time_per_player_new.append(cgu_time)
+                cgu_last_minute_list=list()
+                
         self.creep_gen_units[player_id] = cgu_per_player_new
         self.creep_gen_units_times[player_id] = cgu_time_per_player_new
 
@@ -197,12 +197,11 @@ class creep_tracker():
         f.close()
 
     def check_image_pixel_within_boundary(self,pointX, pointY):
-        if pointX <0:
-            pointX=0
-        if pointY <0:
-            pointY=0
-        pointX = int(pointX % self.map_width)
-        pointY = int(pointY % self.map_height)
+        pointX = 0 if pointX <0 else pointX
+        pointY=0 if pointY <0 else pointY
+        # put a minus 1 to make sure the pixel is not directly on the edge
+        pointX = int(self.map_width-1 if pointX >= self.map_width else pointX)
+        pointY = int(self.map_height-1 if pointY >= self.map_height else pointY)
         return pointX,pointY
 
     def convert_cgu_radius_event_to_map_coord(self,cgu_radius):
