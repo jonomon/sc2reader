@@ -11,18 +11,21 @@ class creep_tracker():
     def __init__(self,replay):
         #if the debug option is selected, minimaps will be printed to a file
         ##and a stringIO containing the minimap image will be saved for 
-        ##every minite in the game
+        ##every minite in the game and the minimap with creep highlighted 
+        ## will be printed out.
         self.debug = replay.opt.debug
+        ##This list contains creep spread area for each player
         self.creep_spread_by_minute = dict()
-        self.creep_spread_image_by_minute = dict()
+        ## this list contains a minimap highlighted with creep spread for each player
+        if self.debug:
+            self.creep_spread_image_by_minute = dict()
         ## This list contains all the active cgus in every time frame
         self.creep_gen_units = dict()
-        ## Thist list corresponds to creep_generating_units_lists storing
-        ## the time
+        ## Thist list corresponds to creep_gen_units storing the time of each CGU
         self.creep_gen_units_times= dict()
-        ## convert all radii into a sets centred around the origin,
+        ## convert all possible cgu radii into a sets of coordinates centred around the origin,
         ## in order to use this with the CGUs, the centre point will be
-        ## subtracted with all values in the 
+        ## subtracted with coordinates of cgus created in game
         self.unit_name_to_radius = {'CreepTumor': 10, "Hatchery":8,\
                                      "NydusCanal": 5 }
         self.radius_to_coordinates= dict()
@@ -44,6 +47,7 @@ class creep_tracker():
         # would preserve aspect ratio
         self.map_width = int(cropsize[0] * (float(self.map_height) / cropsize[1]))
         self.mapSize =self.map_height * self.map_width 
+        ## the following parameters are only needed if minimaps have to be printed
         minimapSize = ( self.map_width,int(self.map_height) )
         self.minimap_image = cropped.resize(minimapSize, ANTIALIAS)
         mapOffsetX, mapOffsetY = self.cameraOffset(mapinfo)
@@ -71,7 +75,8 @@ class creep_tracker():
 
     def init_cgu_lists(self, player_id):
         self.creep_spread_by_minute[player_id] = defaultdict(int)
-        self.creep_spread_image_by_minute[player_id] = defaultdict(StringIO)
+        if self.debug:
+            self.creep_spread_image_by_minute[player_id] = defaultdict(StringIO)
         self.creep_gen_units[player_id] = list()
         self.creep_gen_units_times[player_id] = list()
 
@@ -91,6 +96,10 @@ class creep_tracker():
             self.creep_gen_units_times[player_id].append(event_time)
 
     def remove_from_list(self,unit_id,time_frame):
+        ## This function searches is given a unit ID for every unit who died
+        ## the unit id will be searched in cgu_gen_units for matches
+        ## if there are any, that unit will be removed from active CGUs 
+        ## and appended as a new time frame
         for player_id in self.creep_gen_units:
             length_cgu_list = len(self.creep_gen_units[player_id])
             if length_cgu_list ==0:
@@ -105,12 +114,12 @@ class creep_tracker():
                 self.creep_gen_units_times[player_id].append(time_frame)
 
     def add_event(self,event):
+        # Search things that generate creep
+        # Tumor, hatcheries, nydus
         if event.name == "UnitBornEvent":
             if event.unit_type_name== "Hatchery":
                 self.add_to_list(event.control_pid, event.unit_id,\
                                 (event.x,event.y),event.unit_type_name,event.second)
-        # Search things that generate creep
-        # Tumor, hatcheries, nydus and overlords generating creep
         if event.name == "UnitInitEvent":
             units = ["CreepTumor", "Hatchery","NydusCanal"] 
             if event.unit_type_name in units:
@@ -147,6 +156,7 @@ class creep_tracker():
         self.creep_gen_units_times[player_id] = cgu_time_per_player_new
 
     def get_creep_spread_area(self,player_id):
+        ## iterates through all cgus and and calculate the area 
         for index,cgu_per_player in enumerate(self.creep_gen_units[player_id]):
             # convert cgu list into centre of circles and radius
             cgu_radius = map(lambda x: (x[1], self.unit_name_to_radius[x[2]]),\
