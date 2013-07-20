@@ -324,6 +324,10 @@ def test_creepTracker():
                 assert replay.player[player_id].creep_spread_by_minute
 
 
+    replay =factory.load_replay("test_replays/2.0.8.25605/ggtracker_3621402.SC2Replay",load_map= True,load_level=4)
+    assert replay.player[2].max_creep_spread == (14,22.95)
+    assert  replay.player[2].creep_spread_by_minute[7] == 8.21
+    assert replay.player[2].creep_spread_by_minute[13] == 22.42
 
 
 
