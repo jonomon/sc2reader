@@ -43,7 +43,7 @@ class SC2Factory(object):
     _resource_name_map = dict(replay=Replay,map=Map)
 
     default_options = {
-        Resource: {'debug':False},
+        Resource: {'debug':False,'plugin_speed_test':False},
         Replay: {'load_level':4, 'load_map':False},
     }
 

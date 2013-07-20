@@ -17,7 +17,15 @@ def plugin(func):
         def call(*args, **kwargs):
             opt = kwargs.copy()
             opt.update(options)
-            return func(*args, **opt)
+            if args[0].opt.plugin_speed_test:
+                 import time
+                 ts = time.time()
+                 result = func(*args, **opt)
+                 te = time.time()
+                 print "Plugin Name: {0}, time taken: {1}".format(func.__name__, te-ts)
+                 return result
+            else:
+                return func(*args, **opt)
         return call
     return wrapper
 

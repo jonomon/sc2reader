@@ -135,6 +135,7 @@ def CreepTracker(replay):
     except AttributeError:
         print "Map was not loaded"
         return replay
+
     creepTracker  = creep_tracker(replay)
     ## Initialisation of cgus
     for player in replay.players:
@@ -157,6 +158,7 @@ def CreepTracker(replay):
             player.max_creep_spread  = max(player.creep_spread_by_minute.items(),key=lambda x:x[1])
         else:
              player.max_creep_spread  =0
+             
     return  replay 
 
 @plugin
