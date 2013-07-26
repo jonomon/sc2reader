@@ -9,6 +9,7 @@ from sc2reader.log_utils import loggable
 from functools import wraps
 from bisect import bisect_left
 from collections import defaultdict
+from time import time
 
 def plugin(func):
     @wraps(func)
@@ -18,10 +19,9 @@ def plugin(func):
             opt = kwargs.copy()
             opt.update(options)
             if args[0].opt.plugin_speed_test:
-                 import time
-                 ts = time.time()
+                 ts = time()
                  result = func(*args, **opt)
-                 te = time.time()
+                 te = time()
                  print "Plugin Name: {0}, time taken: {1}".format(func.__name__, te-ts)
                  return result
             else:
