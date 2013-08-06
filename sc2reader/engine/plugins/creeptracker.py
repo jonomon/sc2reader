@@ -46,7 +46,7 @@ class CreepTracker(object):
             if player.creep_spread_by_minute:
                 player.max_creep_spread  = max(player.creep_spread_by_minute.items(),key=lambda x:x[1])
             else:
-                ## Else statement is for players with no creep spread(ie: not Z)
+                ## Else statement is for players with no creep spread(ie: not Zerg)
                 player.max_creep_spread  =0
 
 ## The class used to used to calculate the creep spread 
