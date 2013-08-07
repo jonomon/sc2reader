@@ -23,8 +23,13 @@ class APMTracker(object):
             player.seconds_played = replay.length.seconds
 
     def handlePlayerActionEvent(self, event, replay):
-        event.player.aps[event.second] += 1
-        event.player.apm[int(event.second/60)] += 1
+        ## obversers cause this to crash. 
+        ##Is there another way to differentiate obverservers and players? 
+        try:
+            event.player.aps[event.second] += 1
+            event.player.apm[int(event.second/60)] += 1
+        except AttributeError:
+            pass
 
     def handlePlayerLeaveEvent(self, event, replay):
         event.player.seconds_played = event.second

@@ -40,8 +40,8 @@ class CreepTracker(object):
     def handleEndGame(self, event, replay):
         if len( replay.tracker_events) ==0 :
             return
-        for player in replay.players:
-            self.creepTracker.reduce_cgu_per_minute(player.pid)
+        #for player in replay.players:
+          #  self.creepTracker.reduce_cgu_per_minute(player.pid)
         for player in replay.players:
             player.creep_spread_by_minute = self.creepTracker.get_creep_spread_area(player.pid)
         for player in replay.players:
@@ -194,8 +194,7 @@ class creep_tracker():
             cgu_radius = self.convert_cgu_radius_event_to_map_coord(cgu_radius)
             creep_area_positions = self.cgu_radius_to_map_positions(cgu_radius,self.radius_to_coordinates)
             cgu_event_time = self.creep_gen_units_times[player_id][index]
-            cgu_event_time_str = str(int(cgu_event_time/60))\
-                                    +":"+str(cgu_event_time%60)
+            cgu_event_time_str=str(int(cgu_event_time/60))+":"+str(cgu_event_time%60)
             if self.debug: 
                 self.print_image(creep_area_positions,player_id,cgu_event_time_str)
             creep_area = len(creep_area_positions)
