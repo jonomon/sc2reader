@@ -40,8 +40,8 @@ class CreepTracker(object):
     def handleEndGame(self, event, replay):
         if len( replay.tracker_events) ==0 :
             return
-        #for player in replay.players:
-          #  self.creepTracker.reduce_cgu_per_minute(player.pid)
+        for player in replay.players:
+            self.creepTracker.reduce_cgu_per_minute(player.pid)
         for player in replay.players:
             player.creep_spread_by_minute = self.creepTracker.get_creep_spread_area(player.pid)
         for player in replay.players:
