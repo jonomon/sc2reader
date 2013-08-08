@@ -198,7 +198,7 @@ class creep_tracker():
             if self.debug: 
                 self.print_image(creep_area_positions,player_id,cgu_event_time_str)
             creep_area = len(creep_area_positions)
-            self.creep_spread_by_minute[player_id][cgu_event_time_str]=\
+            self.creep_spread_by_minute[player_id][cgu_event_time]=\
                                                     float(creep_area)/self.mapSize*100
         return self.creep_spread_by_minute[player_id]
 
