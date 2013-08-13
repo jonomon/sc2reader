@@ -339,11 +339,11 @@ def test_creepTracker():
                 assert replay.player[player_id].max_creep_spread >0
                 assert replay.player[player_id].creep_spread_by_minute
 
-
     replay =factory.load_replay("test_replays/2.0.8.25605/ggtracker_3621402.SC2Replay",load_map= True,engine=pluginEngine,load_level=4)
-    assert replay.player[2].max_creep_spread == (14,22.95)
-    assert  replay.player[2].creep_spread_by_minute[7] == 8.21
-    assert replay.player[2].creep_spread_by_minute[13] == 22.42
+    assert replay.player[2].max_creep_spread == (840,24.83)
+    sorted_creep_spread = sorted(replay.player[2].creep_spread_by_minute.items(), key=lambda p: p[0])
+    assert sorted_creep_spread[7] == (660,20.47)
+    assert sorted_creep_spread[3] == (420,9.4)
 
 if __name__ == '__main__':
     unittest.main()
