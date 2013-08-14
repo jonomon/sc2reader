@@ -3,18 +3,11 @@ from __future__ import absolute_import, print_function, unicode_literals, divisi
 
 from collections import defaultdict
 from itertools import tee
-import sys
 
-## import version specific libraries
-try:
-    ## Try to import python2 libraries
-    from Image import open as PIL_open
-    from Image import ANTIALIAS 
-    from sets import Set
-    from StringIO import StringIO
-except ImportError:
-    ## Import python3 libraries instead
-     from io import StringIO
+from Image import open as PIL_open
+from Image import ANTIALIAS 
+from sets import Set
+from StringIO import StringIO
 
 # The creep tracker plugin
 class CreepTracker(object):
@@ -67,9 +60,6 @@ class creep_tracker():
         ##every minite in the game and the minimap with creep highlighted 
         ## will be printed out.
         self.debug = replay.opt.debug
-        if sys.version_info[0]>=3:
-            ## since PIL doesn't work with python3 yet, no images can be printed there debug mode removed
-            self.debug = False
         ##This list contains creep spread area for each player
         self.creep_spread_by_minute = dict()
         ## this list contains a minimap highlighted with creep spread for each player
@@ -217,10 +207,7 @@ class creep_tracker():
 
     def cgu_radius_to_map_positions(self,cgu_radius,radius_to_coordinates):
     ## This function uses the output of radius_to_map_positions
-        try: ## try except to account for changes in python2 and python 3
-            total_points_on_map = Set()
-        except NameError:
-            total_points_on_map = set()
+        total_points_on_map = Set()
         if len(cgu_radius)==0:
             return []
         for cgu in cgu_radius:
@@ -230,10 +217,7 @@ class creep_tracker():
             ## cgu radius to change centre of circle 
             cgu_map_position = map( lambda x:(x[0]+point[0],x[1]+point[1])\
                             ,self.radius_to_coordinates[radius])
-            try:  ## try except to account for changes in python2 and python 3
-                new_set = Set(cgu_map_position)
-            except NameError:
-                new_set = set(cgu_map_position)
+            new_set = Set(cgu_map_position)
             total_points_on_map= total_points_on_map | new_set
         return total_points_on_map
 
@@ -250,7 +234,6 @@ class creep_tracker():
         creeped_imageIO = StringIO()
         creeped_image.save(creeped_imageIO, "png")
         self.creep_spread_image_by_minute[player_id][time_stamp]=creeped_imageIO
-        ##debug for print out the images
         f = open(str(player_id)+'image'+time_stamp+'.png','w')
         f.write(creeped_imageIO.getvalue())
         creeped_imageIO.close()
