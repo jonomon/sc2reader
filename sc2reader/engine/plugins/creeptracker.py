@@ -261,6 +261,3 @@ class creep_tracker():
         imageX = int(self.map_width - self.transX + self.image_scale * x)
         imageY = int(self.transY - self.image_scale * y)
         return imageX, imageY
-
-
-
