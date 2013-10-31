@@ -46,7 +46,7 @@ class CreepTracker(object):
                 event.second)
 
     def handleEndGame(self, event, replay):
-        if len(replay.tracker_events) == 0:
+        if len( replay.tracker_events) == 0 :
             return
         for player in replay.players:
             self.creepTracker.reduce_cgu_per_minute(player.pid)
@@ -61,70 +61,75 @@ class CreepTracker(object):
                 ## (ie: not Zerg)
                 player.max_creep_spread  = 0
 
+
 ## The class used to used to calculate the creep spread 
 class creep_tracker():
-    def __init__(self,replay):
-        #if the debug option is selected, minimaps will be printed to a file
-        ##and a stringIO containing the minimap image will be saved for 
-        ##every minite in the game and the minimap with creep highlighted 
-        ## will be printed out.
-        self.debug = replay.opt.debug
-        ##This list contains creep spread area for each player
+    def __init__(self, replay):
+        # if the debug option is selected, minimaps will be printed to a file
+        # and a stringIO containing the minimap image will be saved for 
+        # every minite in the game and the minimap with creep highlighted 
+        # will be printed out.
+        self.debug= replay.opt.debug
+        #
+        # Initialisations
+        #
+        # The following dict contains creep spread area for each player
         self.creep_spread_by_minute = dict()
-        ## this list contains a minimap highlighted with creep spread for each player
+        # The following dict contains a minimap highlighted with creep spread for each player
         if self.debug:
             self.creep_spread_image_by_minute = dict()
-        ## This list contains all the active cgus in every time frame
+        # The following dict contains all the active cgus in every time frame
         self.creep_gen_units = dict()
-        ## Thist list corresponds to creep_gen_units storing the time of each CGU
-        self.creep_gen_units_seconds= dict()
-        ## convert all possible cgu radii into a sets of coordinates centred around the origin,
-        ## in order to use this with the CGUs, the centre point will be
-        ## subtracted with coordinates of cgus created in game
-        self.unit_name_to_radius={'CreepTumor': 10,"Hatchery":8,"NydusCanal": 5}
-        self.radius_to_coordinates= dict()
+        # The following dict corresponds to creep_gen_units storing the time of each CGU
+        self.creep_gen_units_seconds = dict()
+        # Convert all possible CGU radii into a sets of coordinates centred around the origin,
+        # in order to use this with the CGUs, the centre point will be
+        # subtracted with coordinates of cgus created in game
+        self.unit_name_to_radius = {'CreepTumor': 10,"Hatchery":8,"NydusCanal": 5}
+        self.radius_to_coordinates = dict()
         for x in self.unit_name_to_radius:
-            self.radius_to_coordinates[self.unit_name_to_radius[x]] =self.radius_to_map_positions(self.unit_name_to_radius[x])
+            self.radius_to_coordinates[self.unit_name_to_radius[x]] = self.radius_to_map_positions(self.unit_name_to_radius[x])
+        #    
         #Get map information
-        replayMap = replay.map
-        # extract image from replay package
+        #
+        replayMap= replay.map
         self.map_height = 100.0
         if self.debug:
             mapsio = StringIO(replayMap.minimap)
-            im = PIL_open(mapsio)
-            ##remove black box around minimap
+            im= PIL_open(mapsio)
+            # remove black box around minimap
             cropped = im.crop(im.getbbox())
         cropsizeX = replay.map.map_info.camera_right - replay.map.map_info.camera_left
         cropsizeY = replay.map.map_info.camera_top - replay.map.map_info.camera_bottom
-        cropsize = (cropsizeX,cropsizeY)
-        # resize height to MAPHEIGHT, and compute new width that
+        cropsize= (cropsizeX,cropsizeY)
+        # Resize height to map_height, and compute new width that
         # would preserve aspect ratio
-        self.map_width = int(cropsize[0]*(float(self.map_height) / cropsize[1]))
-        self.mapSize =self.map_height * self.map_width 
+        self.map_width = int(cropsize[0]*(float(self.map_height)/cropsize[1]))
+        self.mapSize = self.map_height * self.map_width 
         minimapSize = ( self.map_width,int(self.map_height) )
         if self.debug:
             self.minimap_image = cropped.resize(minimapSize, ANTIALIAS)
-        mapOffsetX= replayMap.map_info.camera_left
+        mapOffsetX = replayMap.map_info.camera_left
         mapOffsetY = replayMap.map_info.camera_bottom
-        mapCenter= [mapOffsetX+cropsize[0]/2.0,mapOffsetY+cropsize[1]/2.0]
+        mapCenter = [mapOffsetX+cropsize[0]/2.0,mapOffsetY+cropsize[1]/2.0]
         # this is the center of the minimap image, in pixel coordinates
         imageCenter = [(self.map_width/2), self.map_height/2]
-        # this is the scaling factor to go from the SC2 coordinate
+        # This is the scaling factor to go from the SC2 coordinate
         # system to pixel coordinates
-        self.image_scale = float(self.map_height) / cropsize[1] 
-        self.transX =imageCenter[0] + self.image_scale * (mapCenter[0])
+        self.image_scale = float(self.map_height)/cropsize[1] 
+        self.transX = imageCenter[0] + self.image_scale * (mapCenter[0])
         self.transY = imageCenter[1] + self.image_scale * (mapCenter[1])
         
-    def radius_to_map_positions(self,radius):
+    def radius_to_map_positions(self, radius):
         ## this function converts all radius into map coordinates
         ## centred around  the origin that the creep can exist
         ## the cgu_radius_to_map_position function will simply
         ## substract every coordinate with the centre point of the tumour
         output_coordinates = list()
         # Sample a square area using the radius
-        for x in range (-radius,radius):
+        for x in range (-radius, radius):
             for y in range (-radius, radius):
-                if (x**2 + y**2) <= (radius * radius):
+                if (x**2 + y**2)<= (radius * radius):
                     output_coordinates.append((x,y))
         return output_coordinates
 
@@ -135,74 +140,74 @@ class creep_tracker():
         self.creep_gen_units[player_id] = list()
         self.creep_gen_units_seconds[player_id] = list()
 
-    def add_to_list(self,player_id,unit_id,unit_location,unit_type,event_time):
+    def add_to_list(self, player_id, unit_id, unit_location, unit_type, event_time):
     # This functions adds a new time frame to creep_generating_units_list
     # Each time frame contains a list of all CGUs that are alive
         length_cgu_list = len(self.creep_gen_units[player_id])
-        if length_cgu_list==0:
-            self.creep_gen_units[player_id].append([(unit_id, unit_location,unit_type)])
+        if length_cgu_list == 0:
+            self.creep_gen_units[player_id].append([(unit_id, unit_location, unit_type)])
             self.creep_gen_units_seconds[player_id].append(event_time)
         else:
-            #if the list is not empty, take the previous time frame,
+            #If the list is not empty, take the previous time frame,
             # add the new CGU to it and append it as a new time frame
             previous_list = self.creep_gen_units[player_id][length_cgu_list-1][:]
-            previous_list.append((unit_id, unit_location,unit_type))
+            previous_list.append((unit_id, unit_location, unit_type))
             self.creep_gen_units[player_id].append(previous_list)
             self.creep_gen_units_seconds[player_id].append(event_time)
 
-    def remove_from_list(self,unit_id,time_frame):
-        ## This function searches is given a unit ID for every unit who died
-        ## the unit id will be searched in cgu_gen_units for matches
-        ## if there are any, that unit will be removed from active CGUs 
-        ## and appended as a new time frame
+    def remove_from_list(self, unit_id, time_frame):
+    ## This function searches is given a unit ID for every unit who died
+    ## the unit id will be searched in cgu_gen_units for matches
+    ## if there are any, that unit will be removed from active CGUs 
+    ## and appended as a new time frame
         for player_id in self.creep_gen_units:
             length_cgu_list = len(self.creep_gen_units[player_id])
-            if length_cgu_list ==0:
+            if length_cgu_list == 0:
                     break
             cgu_per_player = self.creep_gen_units[player_id] [length_cgu_list-1]
-            creep_generating_died =filter(lambda x:x[0]==unit_id,cgu_per_player)
+            creep_generating_died = filter(lambda x:x[0]==unit_id,cgu_per_player)
             for creep_generating_died_unit in creep_generating_died:
                 new_cgu_per_player = list(filter(lambda x:x != creep_generating_died_unit, cgu_per_player ))
                 self.creep_gen_units[player_id].append(new_cgu_per_player)
                 self.creep_gen_units_seconds[player_id].append(time_frame)
 
-    def cgu_gen_times_to_chunks(self,cgu_time_list):
-        ## this function returns the index and value of every cgu time 
-        maximum_cgu_time = max(cgu_time_list)
+    def cgu_gen_times_to_chunks(self, cgu_time_list):
+    ## this function returns the index and value of every cgu time 
+        maximum_cgu_time= max(cgu_time_list)
         for i in range(0, maximum_cgu_time):
             a = list(filter(lambda x_y: x_y[1]//60==i , enumerate(cgu_time_list)))
             if len(a)>0:
                 yield a
 
-    def cgu_in_min_to_cgu_units(self,player_id,cgu_in_minutes):
-    ## this function takes index and value of CGU times and returns
+    def cgu_in_min_to_cgu_units(self, player_id, cgu_in_minutes):
+    ## This function takes index and value of CGU times and returns
     ## the cgu units with the maximum length
         for cgu_per_minute in cgu_in_minutes:
             indexes = map(lambda x:x[0], cgu_per_minute)
             cgu_units = list()
             for index in indexes:
                 cgu_units.append(self.creep_gen_units[player_id][index])
-            cgu_max_in_minute = max(cgu_units,key = len)
+            cgu_max_in_minute = max(cgu_units,key=len)
             yield cgu_max_in_minute
     
-    def reduce_cgu_per_minute(self,player_id):
-    #the creep_gen_units_lists contains every single time frame
+    def reduce_cgu_per_minute(self, player_id):
+    #The creep_gen_units_lists contains every single time frame
     #where a CGU is added,
     #To reduce the calculations required, the time frame containing
     #the most cgus every minute will be used to represent that minute
-        if len(self.creep_gen_units_seconds[player_id])==0:
+        if len(self.creep_gen_units_seconds[player_id]) == 0:
             return
-        cgu_per_minute1, cgu_per_minute2 =  tee (self.cgu_gen_times_to_chunks(self.creep_gen_units_seconds[player_id]))
-        cgu_unit_max_per_minute = self.cgu_in_min_to_cgu_units(player_id,cgu_per_minute1)
+        cgu_per_minute1, cgu_per_minute2 = tee(self.cgu_gen_times_to_chunks(self.creep_gen_units_seconds[player_id]))
+        cgu_unit_max_per_minute = self.cgu_in_min_to_cgu_units(player_id, cgu_per_minute1)
         minutes = map(lambda x:int(x[0][1]//60)*60, cgu_per_minute2)
         self.creep_gen_units[player_id] = list(cgu_unit_max_per_minute)
         self.creep_gen_units_seconds[player_id] = list(minutes)
 
-    def get_creep_spread_area(self,player_id):
-        ## iterates through all cgus and and calculate the area 
+    def get_creep_spread_area(self, player_id):
+    ## Iterates through all cgus and and calculate the area 
         for index,cgu_per_player in enumerate(self.creep_gen_units[player_id]):
             # convert cgu list into centre of circles and radius
-            cgu_radius = map(lambda x: (x[1], self.unit_name_to_radius[x[2]]),cgu_per_player)
+            cgu_radius = map(lambda x:(x[1], self.unit_name_to_radius[x[2]]), cgu_per_player)
             # convert event coords to minimap coords
             cgu_radius = self.convert_cgu_radius_event_to_map_coord(cgu_radius)
             creep_area_positions = self.cgu_radius_to_map_positions(cgu_radius,self.radius_to_coordinates)
@@ -217,17 +222,17 @@ class creep_tracker():
     def cgu_radius_to_map_positions(self,cgu_radius,radius_to_coordinates):
     ## This function uses the output of radius_to_map_positions
         total_points_on_map = Set()
-        if len(cgu_radius)==0:
+        if len(cgu_radius )== 0:
             return []
         for cgu in cgu_radius:
             point = cgu[0]
             radius = cgu[1]
             ## subtract all radius_to_coordinates with centre of
             ## cgu radius to change centre of circle 
-            cgu_map_position = map( lambda x:(x[0]+point[0],x[1]+point[1])\
+            cgu_map_position = map(lambda x:(x[0]+point[0],x[1]+point[1])\
                             ,self.radius_to_coordinates[radius])
             new_set = Set(cgu_map_position)
-            total_points_on_map= total_points_on_map | new_set
+            total_points_on_map = total_points_on_map | new_set
         return total_points_on_map
 
     def print_image(self,total_points_on_map,player_id,time_stamp):
