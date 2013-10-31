@@ -37,28 +37,34 @@ class Unit(object):
     Represents an in-game unit.
     """
 
-    def __init__(self, unit_id, flags):
-        #: A reference to the player that owns this unit
+    def __init__(self, unit_id):
+        #: A reference to the player that currently owns this unit. Only available for 2.0.8+ replays.
         self.owner = None
 
-        #: The frame the unit was started at
+        #: The frame the unit was started at. Only available for 2.0.8+ replays.
+        #: Specifically, it is the frame the :class:`~sc2reader.events.tracker.UnitInitEvent` is received. For units
+        #: that are born and not initiated this will be the same as :attr:`finished_at`.
         self.started_at = None
 
-        #: The frame the unit was finished at
+        #: The frame the unit was finished at. Only available for 2.0.8+ replays.
+        #: Specifically, it is the frame that the :class:`~sc2reader.events.tracker.UnitDoneEvent` is received. For units
+        #: that are born and not initiated this will be the frame that the :class:`~sc2reader.events.tracker.UnitBornEvent`
+        #: is received.
         self.finished_at = None
 
-        #: The frame the unit died at
+        #: The frame the unit died at. Only available for 2.0.8+ replays.
+        #: Specifically, it is the frame that the :class:`~sc2reader.events.tracker.UnitDiedEvent` is received.
         self.died_at = None
 
-        #: A reference to the player that killed this unit. Not always available.
+        #: A reference to the player that killed this unit. Only available for 2.0.8+ replays.
+        #: This value is not set if the killer is unknown or not relevant (morphed into a
+        #: different unit or used to create a building, etc)
         self.killed_by = None
 
         #: The unique in-game id for this unit. The id can sometimes be zero because
         #: TargetAbilityEvents will create a new unit with id zero when a unit
         #: behind the fog of war is targetted.
         self.id = unit_id
-
-        self.flags = flags
 
         #: A reference to the unit type this unit is current in.
         #: e.g. SeigeTank is a different type than SeigeTankSeiged
@@ -68,8 +74,14 @@ class Unit(object):
         #: in order by frame the type was acquired.
         self.type_history = OrderedDict()
 
-        #: Is this unit type a hallucinated one? Unsure of this flag..
-        self.hallucinated = (flags & 2 == 2)
+        #: Is this unit type a hallucinated one?
+        self.hallucinated = False
+
+        self.flags = 0
+
+    def apply_flags(self, flags):
+        self.flags = flags
+        self.hallucinated = flags & 2 == 2
 
     def set_type(self, unit_type, frame):
         self._type_class = unit_type
@@ -223,14 +235,14 @@ class Build(object):
         #: A dictionary mapping integer ids to available abilities.
         self.abilities = dict()
 
-    def create_unit(self, unit_id, unit_type, unit_flags, frame):
+    def create_unit(self, unit_id, unit_type, frame):
         """
         :param unit_id: The unique id of this unit.
         :param unit_type: The unit type to assign to the new unit
 
         Creates a new unit and assigns it to the specified type.
         """
-        unit = Unit(unit_id, unit_flags)
+        unit = Unit(unit_id)
         self.change_type(unit, unit_type, frame)
         return unit
 

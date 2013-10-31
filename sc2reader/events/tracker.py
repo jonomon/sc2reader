@@ -10,10 +10,15 @@ clamp = functools.partial(max, 0)
 
 
 class TrackerEvent(Event):
+    """
+    Parent class for all tracker events.
+    """
     def __init__(self, frames):
         #: The frame of the game this event was applied
         self.frame = frames
-        self.second = frames >>4
+        self.second = frames >> 4
+        #: Short cut string for event class name
+        self.name = self.__class__.__name__
 
     def load_context(self, replay):
         pass
@@ -27,20 +32,16 @@ class TrackerEvent(Event):
 
 class PlayerStatsEvent(TrackerEvent):
     """
-        Player Stats events are generated for all players that were in the game
-        even if they've since left every 10 seconds. An additional set of stats
-        events are generated at the end of the game.
+    Player Stats events are generated for all players that were in the game even if they've since
+    left every 10 seconds. An additional set of stats events are generated at the end of the game.
 
-        When a player leaves the game, a single PlayerStatsEvent is generated
-        for that player and no one else. That player continues to generate
-        PlayerStatsEvents at 10 second intervals until the end of the game.
+    When a player leaves the game, a single PlayerStatsEvent is generated for that player and no
+    one else. That player continues to generate PlayerStatsEvents at 10 second intervals until the
+    end of the game.
 
-        In 1v1 games, the above behavior can cause the losing player to have 2
-        events generated at the end of the game. One for leaving and one for
-        the  end of the game.
+    In 1v1 games, the above behavior can cause the losing player to have 2 events generated at the
+    end of the game. One for leaving and one for the  end of the game.
     """
-    name = 'PlayerStatsEvent'
-
     def __init__(self, frames, data, build):
         super(PlayerStatsEvent, self).__init__(frames)
 
@@ -211,8 +212,16 @@ class PlayerStatsEvent(TrackerEvent):
 
 
 class UnitBornEvent(TrackerEvent):
-    name = 'UnitBornEvent'
+    """
+    Generated when a unit is created in a finished state in the game. Examples include the Marine,
+    Zergling, and Zealot (when trained from a gateway). Units that enter the game unfinished (all
+    buildings, warped in units) generate a :class:`UnitInitEvent` instead.
 
+    Unfortunately, units that are born do not have events marking their beginnings like
+    :class:`UnitInitEvent` and :class:`UnitDoneEvent` do. The closest thing to it are the
+    :class:`~sc2reader.event.game.AbilityEvent` game events where the ability is a train unit
+    command.
+    """
     def __init__(self, frames, data, build):
         super(UnitBornEvent, self).__init__(frames)
 
@@ -243,10 +252,12 @@ class UnitBornEvent(TrackerEvent):
         #: The player object that controls this unit. 0 means neutral unit
         self.unit_controller = None
 
-        #: The x coordinate of the location
+        #: The x coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.x = data[5] * 4
 
-        #: The y coordinate of the location
+        #: The y coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.y = data[6] * 4
 
         #: The map location of the unit birth
@@ -257,8 +268,10 @@ class UnitBornEvent(TrackerEvent):
 
 
 class UnitDiedEvent(TrackerEvent):
-    name = 'UnitDiedEvent'
-
+    """
+    Generated when a unit dies or is removed from the game for any reason. Reasons include
+    morphing, merging, and getting killed.
+    """
     def __init__(self, frames, data, build):
         super(UnitDiedEvent, self).__init__(frames)
 
@@ -280,10 +293,12 @@ class UnitDiedEvent(TrackerEvent):
         #: The player object of the that killed the unit. Not always available.
         self.killer = None
 
-        #: The x coordinate of the location
+        #: The x coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.x = data[3] * 4
 
-        #: The y coordinate of the location
+        #: The y coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.y = data[4] * 4
 
         #: The map location the unit was killed at.
@@ -294,8 +309,10 @@ class UnitDiedEvent(TrackerEvent):
 
 
 class UnitOwnerChangeEvent(TrackerEvent):
-    name = 'UnitOwnerChangeEvent'
-
+    """
+    Generated when either ownership or control of a unit is changed. Neural Parasite is an example
+    of an action that would generate this event.
+    """
     def __init__(self, frames, data, build):
         super(UnitOwnerChangeEvent, self).__init__(frames)
 
@@ -328,8 +345,11 @@ class UnitOwnerChangeEvent(TrackerEvent):
 
 
 class UnitTypeChangeEvent(TrackerEvent):
-    name = 'UnitTypeChangeEvent'
-
+    """
+    Generated when the unit's type changes. This generally tracks upgrades to buildings (Hatch,
+    Lair, Hive) and mode switches (Sieging Tanks, Phasing prisms, Burrowing roaches). There may
+    be some other situations where a unit transformation is a type change and not a new unit.
+    """
     def __init__(self, frames, data, build):
         super(UnitTypeChangeEvent, self).__init__(frames)
 
@@ -353,8 +373,9 @@ class UnitTypeChangeEvent(TrackerEvent):
 
 
 class UpgradeCompleteEvent(TrackerEvent):
-    name = 'UpgradeCompleteEvent'
-
+    """
+    Generated when a player completes an upgrade.
+    """
     def __init__(self, frames, data, build):
         super(UpgradeCompleteEvent, self).__init__(frames)
 
@@ -375,8 +396,11 @@ class UpgradeCompleteEvent(TrackerEvent):
 
 
 class UnitInitEvent(TrackerEvent):
-    name = 'UnitInitEvent'
-
+    """
+    The counter part to :class:`UnitDoneEvent`, generated by the game engine when a unit is
+    initiated. This applies only to units which are started in game before they are finished.
+    Primary examples being buildings and warp-in units.
+    """
     def __init__(self, frames, data, build):
         super(UnitInitEvent, self).__init__(frames)
 
@@ -407,22 +431,26 @@ class UnitInitEvent(TrackerEvent):
         #: The player object that controls this unit. 0 means neutral unit
         self.unit_controller = None
 
-        #: The x coordinate of the location
+        #: The x coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.x = data[5] * 4
 
-        #: The y coordinate of the location
+        #: The y coordinate of the location with 4 point resolution. E.g. 13.75 recorded as 12.
+        #: Location prior to rounding marks the center of the unit footprint.
         self.y = data[6] * 4
 
         #: The map location the unit was started at
         self.location = (self.x, self.y)
 
     def __str__(self):
-        return self._str_prefix()+"{0: >15} - Unit inititated {1}".format(self.unit_upkeeper, self.unit)
+        return self._str_prefix()+"{0: >15} - Unit initiated {1}".format(self.unit_upkeeper, self.unit)
 
 
 class UnitDoneEvent(TrackerEvent):
-    name = 'UnitDoneEvent'
-
+    """
+    The counter part to the :class:`UnitInitEvent`, generated by the game engine when an initiated
+    unit is completed. E.g. warp-in finished, building finished, morph complete.
+    """
     def __init__(self, frames, data, build):
         super(UnitDoneEvent, self).__init__(frames)
 
@@ -443,8 +471,11 @@ class UnitDoneEvent(TrackerEvent):
 
 
 class UnitPositionsEvent(TrackerEvent):
-    name = 'UnitPositionsEvent'
-
+    """
+    Generated every 15 seconds. Marks the positions of the first 255 units that were damaged in
+    the last interval. If more than 255 units were damaged, then the first 255 are reported and
+    the remaining units are carried into the next interval.
+    """
     def __init__(self, frames, data, build):
         super(UnitPositionsEvent, self).__init__(frames)
 
@@ -457,7 +488,9 @@ class UnitPositionsEvent(TrackerEvent):
         #: A dict mapping of units that had their position updated to their positions
         self.units = dict()
 
-        #: A list of (unit_index, (x,y)) derived from the first_unit_index and items
+        #: A list of (unit_index, (x,y)) derived from the first_unit_index and items. Like the other
+        #: tracker events, these coordinates have 4 point resolution. (15,25) recorded as (12,24).
+        #: Location prior to rounding marks the center of the unit footprint.
         self.positions = list()
 
         unit_index = self.first_unit_index

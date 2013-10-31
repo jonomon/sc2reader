@@ -21,15 +21,6 @@ from sc2reader.objects import Participant, Observer, Computer, Team, PlayerSumma
 from sc2reader.constants import REGIONS, GAME_SPEED_FACTOR, LOBBY_PROPERTIES
 
 
-def real_type(teams):
-    # Special case FFA games and sort outmatched games in ascending order
-    team_sizes = [len(team.players) for team in teams]
-    if len(team_sizes) > 2 and sum(team_sizes) == len(team_sizes):
-        return "FFA"
-    else:
-        return "v".join(str(size) for size in sorted(team_sizes))
-
-
 class Resource(object):
     def __init__(self, file_object, filename=None, factory=None, **options):
         self.factory = factory
@@ -193,10 +184,23 @@ class Replay(Resource):
     #: SC2 Expansion. One of 'WoL', 'HotS'
     expasion = str()
 
+    #: True of the game was resumed from a replay
+    resume_from_replay = False
+
+    #: A flag marking which method was used to resume from replay. Unknown interpretation.
+    resume_method = None
+
+    #: Lists info for each user that is resuming from replay.
+    resume_user_info = None
+
+
     def __init__(self, replay_file, filename=None, load_level=4, engine=sc2reader.engine, **options):
         super(Replay, self).__init__(replay_file, filename, **options)
         self.datapack = None
         self.raw_data = dict()
+
+        # The current load level of the replay
+        self.load_level = None
 
         #default values, filled in during file read
         self.player_names = list()
@@ -249,6 +253,7 @@ class Replay(Resource):
         # Unpack the MPQ and read header data if requested
         # Since the underlying traceback isn't important to most people, don't expose it in python2 anymore
         if load_level >= 0:
+            self.load_level = 0
             try:
                 self.archive = mpyq.MPQArchive(replay_file, listfile=False)
             except Exception as e:
@@ -266,6 +271,7 @@ class Replay(Resource):
 
         # Load basic details if requested
         if load_level >= 1:
+            self.load_level = 1
             for data_file in ['replay.initData', 'replay.details', 'replay.attributes.events']:
                 self._read_data(data_file, self._get_reader(data_file))
             self.load_details()
@@ -277,22 +283,26 @@ class Replay(Resource):
 
         # Load players if requested
         if load_level >= 2:
+            self.load_level = 2
             for data_file in ['replay.message.events']:
                 self._read_data(data_file, self._get_reader(data_file))
             self.load_message_events()
             self.load_players()
 
-        # Load events if requested
-        if load_level >= 3:
-            for data_file in ['replay.game.events']:
-                self._read_data(data_file, self._get_reader(data_file))
-            self.load_game_events()
-
         # Load tracker events if requested
-        if load_level >= 4:
+        if load_level >= 3:
+            self.load_level = 3
             for data_file in ['replay.tracker.events']:
                 self._read_data(data_file, self._get_reader(data_file))
             self.load_tracker_events()
+
+
+        # Load events if requested
+        if load_level >= 4:
+            self.load_level = 4
+            for data_file in ['replay.game.events']:
+                self._read_data(data_file, self._get_reader(data_file))
+            self.load_game_events()
 
         # Run this replay through the engine as indicated
         if engine:
@@ -382,12 +392,12 @@ class Replay(Resource):
 
             if slot_data['control'] == 2:
                 if slot_data['observe'] == 0:
-                    self.entities.append(Participant(slot_id, slot_data, user_id, initData['player_init_data'][user_id], player_id, details['players'][detail_id], self.attributes.get(player_id, dict())))
+                    self.entities.append(Participant(slot_id, slot_data, user_id, initData['user_initial_data'][user_id], player_id, details['players'][detail_id], self.attributes.get(player_id, dict())))
                     detail_id += 1
                     player_id += 1
 
                 else:
-                    self.entities.append(Observer(slot_id, slot_data, user_id, initData['player_init_data'][user_id], player_id))
+                    self.entities.append(Observer(slot_id, slot_data, user_id, initData['user_initial_data'][user_id], player_id))
                     player_id += 1
 
             elif slot_data['control'] == 3:
@@ -431,7 +441,7 @@ class Replay(Resource):
                 if team.result == 'Win':
                     self.winner = team
             else:
-                self.logger.warn("Conflicting results: {0}".format(results))
+                self.logger.warn("Conflicting results for Team {0}: {1}".format(team.number, results))
                 team.result = 'Unknown'
 
         self.teams.sort(key=lambda t: t.number)
@@ -442,7 +452,7 @@ class Replay(Resource):
         self.client = self.human
         self.person = self.entity
 
-        self.real_type = real_type(self.teams)
+        self.real_type = utils.get_real_type(self.teams)
 
         # Assign the default region to computer players for consistency
         # We know there will be a default region because there must be
@@ -483,7 +493,7 @@ class Replay(Resource):
             return
 
         self.game_events = self.raw_data['replay.game.events']
-        self.events = sorted(self.game_events+self.events, key=lambda e: e.frame)
+        self.events = sorted(self.events+self.game_events, key=lambda e: e.frame)
 
         # hideous hack for HotS 2.0.0.23925, see https://github.com/GraylinKim/sc2reader/issues/87
         if self.events and self.events[-1].frame > self.frames:
@@ -540,18 +550,11 @@ class Replay(Resource):
     def register_default_readers(self):
         """Registers factory default readers."""
         self.register_reader('replay.details', readers.DetailsReader(), lambda r: True)
-        self.register_reader('replay.initData', readers.InitDataReader_Base(), lambda r: 15405 <= r.base_build < 16561)
-        self.register_reader('replay.initData', readers.InitDataReader_16561(), lambda r: 16561 <= r.base_build < 17326)
-        self.register_reader('replay.initData', readers.InitDataReader_17326(), lambda r: 17326 <= r.base_build < 19132)
-        self.register_reader('replay.initData', readers.InitDataReader_19132(), lambda r: 19132 <= r.base_build < 22612)
-        self.register_reader('replay.initData', readers.InitDataReader_22612(), lambda r: 22612 <= r.base_build < 23925)
-        self.register_reader('replay.initData', readers.InitDataReader_23925(), lambda r: 23925 <= r.base_build < 24764)
-        self.register_reader('replay.initData', readers.InitDataReader_24764(), lambda r: 24764 <= r.base_build < 26490)
-        self.register_reader('replay.initData', readers.InitDataReader_26490(), lambda r: 26490 <= r.base_build)
-        self.register_reader('replay.message.events', readers.MessageEventsReader_Base(), lambda r: r.build < 24247 or r.versions[1] == 1)
-        self.register_reader('replay.message.events', readers.MessageEventsReader_Beta_24247(), lambda r: r.build >= 24247 and r.versions[1] == 2)
-        self.register_reader('replay.attributes.events', readers.AttributesEventsReader_Base(), lambda r: r.build < 17326)
-        self.register_reader('replay.attributes.events', readers.AttributesEventsReader_17326(), lambda r: r.build >= 17326)
+        self.register_reader('replay.initData', readers.InitDataReader(), lambda r: True)
+        self.register_reader('replay.tracker.events', readers.TrackerEventsReader(), lambda r: True)
+        self.register_reader('replay.message.events', readers.MessageEventsReader(), lambda r: True)
+        self.register_reader('replay.attributes.events', readers.AttributesEventsReader(), lambda r: True)
+
         self.register_reader('replay.game.events', readers.GameEventsReader_15405(), lambda r: 15405 <= r.base_build < 16561)
         self.register_reader('replay.game.events', readers.GameEventsReader_16561(), lambda r: 16561 <= r.base_build < 17326)
         self.register_reader('replay.game.events', readers.GameEventsReader_17326(), lambda r: 17326 <= r.base_build < 18574)
@@ -562,7 +565,7 @@ class Replay(Resource):
         self.register_reader('replay.game.events', readers.GameEventsReader_24247(), lambda r: 24247 <= r.base_build < 26490)
         self.register_reader('replay.game.events', readers.GameEventsReader_26490(), lambda r: 26490 <= r.base_build)
         self.register_reader('replay.game.events', readers.GameEventsReader_HotSBeta(), lambda r: r.versions[1] == 2 and r.build < 24247)
-        self.register_reader('replay.tracker.events', readers.TrackerEventsReader_Base(), lambda r: True)
+
 
     def register_default_datapacks(self):
         """Registers factory default datapacks."""
@@ -779,7 +782,7 @@ class GameSummary(Resource):
             self.expansion = ''
 
         self.game_type = self.settings['Teams'].replace(" ", "")
-        self.real_type = real_type(self.teams)
+        self.real_type = utils.get_real_type(self.teams)
 
         # The s2gs file also keeps reference to a series of s2mv files
         # Some of these appear to be encoded bytes and others appear to be

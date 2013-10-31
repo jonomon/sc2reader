@@ -8,6 +8,7 @@ from sc2reader.utils import Length
 
 @loggable
 class ContextLoader(object):
+    name='ContextLoader'
 
     def handleInitGame(self, event, replay):
         replay.units = set()
@@ -29,7 +30,7 @@ class ContextLoader(object):
                 event.logger.error(replay.filename)
                 event.logger.error("Release String: "+replay.release_string)
                 for player in replay.players:
-                    event.logger.error("\t"+str(player))
+                    event.logger.error("\t{0}".format(player))
 
             self.logger.error("{0}\t{1}\tMissing ability {2:X} from {3}".format(event.frame, event.player.name, event.ability_id, replay.datapack.__class__.__name__))
 
@@ -48,10 +49,13 @@ class ContextLoader(object):
 
         if event.target_unit_id in replay.objects:
             event.target = replay.objects[event.target_unit_id]
-            if not event.target.is_type(event.target_unit_type):
+            if not replay.tracker_events and not event.target.is_type(event.target_unit_type):
                 replay.datapack.change_type(event.target, event.target_unit_type, event.frame)
         else:
-            unit = replay.datapack.create_unit(event.target_unit_id, event.target_unit_type, 0x00, event.frame)
+            # Often when the target_unit_id is not in replay.objects it is 0 because it
+            # is a target building/destructable hidden by fog of war. Perhaps we can match
+            # it through the fog using location?
+            unit = replay.datapack.create_unit(event.target_unit_id, event.target_unit_type, event.frame)
             event.target = unit
             replay.objects[event.target_unit_id] = unit
 
@@ -60,7 +64,8 @@ class ContextLoader(object):
             return
 
         units = list()
-        for (unit_id, unit_type, subgroup, intra_subgroup) in event.new_unit_info:
+        # TODO: Blizzard calls these subgroup flags but that doesn't make sense right now
+        for (unit_id, unit_type, subgroup_flags, intra_subgroup_flags) in event.new_unit_info:
             # If we don't have access to tracker events, use selection events to create
             # new units and track unit type changes. It won't be perfect, but it is better
             # than nothing.
@@ -75,13 +80,16 @@ class ContextLoader(object):
                     if not unit.is_type(unit_type):
                         replay.datapack.change_type(unit, unit_type, event.frame)
                 else:
-                    unit = replay.datapack.create_unit(unit_id, unit_type, 0x00, event.frame)
+                    unit = replay.datapack.create_unit(unit_id, unit_type, event.frame)
                     replay.objects[unit_id] = unit
 
             # If we have tracker events, the unit must already exist and must already
             # have the correct unit type.
             else:
                 unit = replay.objects[unit_id]
+
+            # Selection events hold flags on units (like hallucination)
+            unit.apply_flags(intra_subgroup_flags)
 
             units.append(unit)
 
@@ -90,6 +98,11 @@ class ContextLoader(object):
     def handleResourceTradeEvent(self, event, replay):
         event.sender = event.player
         event.recipient = replay.players[event.recipient_id]
+
+    def handleHijackReplayGameEvent(self, event, replay):
+        replay.resume_from_replay = True
+        replay.resume_method = event.method
+        replay.resume_user_info = event.user_infos
 
     def handlePlayerStatsEvent(self, event, replay):
         self.load_tracker_player(event, replay)
@@ -106,7 +119,7 @@ class ContextLoader(object):
             event.unit = replay.objects[event.unit_id]
         else:
             # TODO: How to tell if something is hallucination?
-            event.unit = replay.datapack.create_unit(event.unit_id, event.unit_type_name, 0, event.frame)
+            event.unit = replay.datapack.create_unit(event.unit_id, event.unit_type_name, event.frame)
             replay.objects[event.unit_id] = event.unit
 
         replay.active_units[event.unit_id_index] = event.unit
@@ -185,7 +198,7 @@ class ContextLoader(object):
             event.unit = replay.objects[event.unit_id]
         else:
             # TODO: How to tell if something is hallucination?
-            event.unit = replay.datapack.create_unit(event.unit_id, event.unit_type_name, 0, event.frame)
+            event.unit = replay.datapack.create_unit(event.unit_id, event.unit_type_name, event.frame)
             replay.objects[event.unit_id] = event.unit
 
         replay.active_units[event.unit_id_index] = event.unit
@@ -238,19 +251,19 @@ class ContextLoader(object):
                 pass  # This is a global event
 
     def load_tracker_player(self, event, replay):
-        if event.pid in replay.player:
-            event.player = replay.player[event.pid]
+        if event.pid in replay.entity:
+            event.player = replay.entity[event.pid]
         else:
             self.logger.error("Bad pid ({0}) for event {1} at {2} [{3}].".format(event.pid, event.__class__, Length(seconds=event.second), event.frame))
 
     def load_tracker_upkeeper(self, event, replay):
-        if event.upkeep_pid in replay.player:
-            event.unit_upkeeper = replay.player[event.upkeep_pid]
+        if event.upkeep_pid in replay.entity:
+            event.unit_upkeeper = replay.entity[event.upkeep_pid]
         elif event.upkeep_pid != 0:
             self.logger.error("Bad upkeep_pid ({0}) for event {1} at {2} [{3}].".format(event.upkeep_pid, event.__class__, Length(seconds=event.second), event.frame))
 
     def load_tracker_controller(self, event, replay):
-        if event.control_pid in replay.player:
-            event.unit_controller = replay.player[event.control_pid]
+        if event.control_pid in replay.entity:
+            event.unit_controller = replay.entity[event.control_pid]
         elif event.control_pid != 0:
             self.logger.error("Bad control_pid ({0}) for event {1} at {2} [{3}].".format(event.control_pid, event.__class__, Length(seconds=event.second), event.frame))

@@ -2,22 +2,25 @@
 from __future__ import absolute_import, print_function, unicode_literals, division
 
 from collections import defaultdict
+
 from itertools import tee
 
 from Image import open as PIL_open
-from Image import ANTIALIAS 
+from Image import ANTIALIAS
 from sets import Set
 from StringIO import StringIO
 
+
 # The creep tracker plugin
 class CreepTracker(object):
+    name = 'CreepTracker'
     '''
     The Creep tracker populates player.max_creep_spread and
     player.creep_spread by minute
     This uses the creep_tracker class to calculate the features
     '''
     def handleInitGame(self, event, replay):
-        if len( replay.tracker_events) ==0 :
+        if len(replay.tracker_events) == 0:
             return
         if replay.map is None:
             replay.load_map()
@@ -26,20 +29,24 @@ class CreepTracker(object):
             self.creepTracker.init_cgu_lists(player.pid)
 
     def handleUnitDiedEvent(self, event, replay):
-        self.creepTracker.remove_from_list(event.unit_id,event.second)
+        self.creepTracker.remove_from_list(event.unit_id, event.second)
 
-    def handleUnitInitEvent(self,event,replay):
-        if event.unit_type_name in ["CreepTumor", "Hatchery","NydusCanal"] :
-            self.creepTracker.add_to_list(event.control_pid,event.unit_id,\
-                            (event.x, event.y), event.unit_type_name,event.second)
-    
-    def handleUnitBornEvent(self,event,replay):
-         if event.unit_type_name== "Hatchery":
-             self.creepTracker.add_to_list(event.control_pid, event.unit_id,\
-                                (event.x,event.y),event.unit_type_name,event.second)
+    def handleUnitInitEvent(self, event, replay):
+        if event.unit_type_name in ["CreepTumor", "Hatchery", "NydusCanal"]:
+            self.creepTracker.add_to_list(
+                event.control_pid, event.unit_id,
+                (event.x, event.y), event.unit_type_name,
+                event.second)
+
+    def handleUnitBornEvent(self, event, replay):
+        if event.unit_type_name == "Hatchery":
+            self.creepTracker.add_to_list(
+                event.control_pid, event.unit_id,
+                (event.x, event.y), event.unit_type_name,
+                event.second)
 
     def handleEndGame(self, event, replay):
-        if len( replay.tracker_events) ==0 :
+        if len(replay.tracker_events) == 0:
             return
         for player in replay.players:
             self.creepTracker.reduce_cgu_per_minute(player.pid)
@@ -47,10 +54,12 @@ class CreepTracker(object):
             player.creep_spread_by_minute = self.creepTracker.get_creep_spread_area(player.pid)
         for player in replay.players:
             if player.creep_spread_by_minute:
-                player.max_creep_spread  = max(player.creep_spread_by_minute.items(),key=lambda x:x[1])
+                player.max_creep_spread  = max(player.creep_spread_by_minute.items(), 
+                                               key = lambda x:x[1])
             else:
-                ## Else statement is for players with no creep spread(ie: not Zerg)
-                player.max_creep_spread  =0
+                ## Else statement is for players with no creep spread
+                ## (ie: not Zerg)
+                player.max_creep_spread  = 0
 
 ## The class used to used to calculate the creep spread 
 class creep_tracker():

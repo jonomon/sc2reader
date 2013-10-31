@@ -227,6 +227,8 @@ class TestReplays(unittest.TestCase):
 
     def test_resume_from_replay(self):
         replay = sc2reader.load_replay("test_replays/2.0.3.24764/resume_from_replay.SC2Replay")
+        self.assertTrue(replay.resume_from_replay)
+        self.assertEqual(replay.resume_method, 0)
 
     def test_clan_players(self):
         replay = sc2reader.load_replay("test_replays/2.0.4.24944/Lunar Colony V.SC2Replay")
@@ -297,6 +299,10 @@ class TestReplays(unittest.TestCase):
             ])
         )
 
+        code, details = replay.plugins['ContextLoader']
+        self.assertEqual(code, 0)
+        self.assertEqual(details, dict())
+
     def test_factory_plugins(self):
         from sc2reader.factories.plugins.replay import APMTracker, SelectionTracker, toJSON
 
@@ -317,6 +323,101 @@ class TestReplays(unittest.TestCase):
         self.assertEqual(result["gateway"], "cn")
         self.assertEqual(result["game_fps"], 16.0)
         self.assertTrue(result["is_ladder"])
+
+    def test_gameheartnormalizer_plugin(self):
+        from sc2reader.engine.plugins import GameHeartNormalizer
+        sc2reader.engine.register_plugin(GameHeartNormalizer())
+
+        # Not a GameHeart game!
+        replay = sc2reader.load_replay("test_replays/2.0.0.24247/molten.SC2Replay")
+        player_pids = set([ player.pid for player in replay.players])
+        spawner_pids = set([ event.player.pid for event in replay.events if "TargetAbilityEvent" in event.name and event.ability.name == "SpawnLarva"])
+        self.assertTrue(spawner_pids.issubset(player_pids))
+
+        replay = sc2reader.load_replay("test_replays/gameheart/gameheart.SC2Replay")
+        self.assertEqual(replay.events[0].frame, 0)
+        self.assertEqual(replay.game_length.seconds, 636)
+        self.assertEqual(len(replay.observers), 5)
+        self.assertEqual(replay.players[0].name, 'SjoWBBII')
+        self.assertEqual(replay.players[0].play_race, 'Terran')
+        self.assertEqual(replay.players[1].name, 'Stardust')
+        self.assertEqual(replay.players[1].play_race, 'Protoss')
+        self.assertEqual(len(replay.teams), 2)
+        self.assertEqual(replay.teams[0].players[0].name, 'SjoWBBII')
+        self.assertEqual(replay.teams[1].players[0].name, 'Stardust')
+        self.assertEqual(replay.winner, replay.teams[1])
+
+        replay = sc2reader.load_replay("test_replays/gameheart/gh_sameteam.SC2Replay")
+        self.assertEqual(replay.events[0].frame, 0)
+        self.assertEqual(replay.game_length.seconds, 424)
+        self.assertEqual(len(replay.observers), 5)
+        self.assertEqual(replay.players[0].name, 'EGJDRC')
+        self.assertEqual(replay.players[0].play_race, 'Zerg')
+        self.assertEqual(replay.players[1].name, 'LiquidTaeJa')
+        self.assertEqual(replay.players[1].play_race, 'Terran')
+        self.assertEqual(len(replay.teams), 2)
+        self.assertEqual(replay.teams[0].players[0].name, 'EGJDRC')
+        self.assertEqual(replay.teams[1].players[0].name, 'LiquidTaeJa')
+        self.assertEqual(replay.winner, replay.teams[0])
+
+    def test_replay_event_order(self):
+        replay = sc2reader.load_replay("test_replays/event_order.SC2Replay")
+
+
+class TestGameEngine(unittest.TestCase):
+    class TestEvent(object):
+        name='TestEvent'
+        def __init__(self, value):
+            self.value = value
+        def __str__(self):
+            return self.value
+
+    class TestPlugin1(object):
+        name = 'TestPlugin1'
+
+        def handleInitGame(self, event, replay):
+            yield TestGameEngine.TestEvent('b')
+            yield TestGameEngine.TestEvent('c')
+
+        def handleTestEvent(self, event, replay):
+            print("morestuff")
+            if event.value == 'd':
+                yield sc2reader.engine.PluginExit(self, code=1, details=dict(msg="Fail!"))
+            else:
+                yield TestGameEngine.TestEvent('d')
+
+        def handleEndGame(self, event, replay):
+            yield TestGameEngine.TestEvent('g')
+
+    class TestPlugin2(object):
+        name = 'TestPlugin2'
+        def handleInitGame(self, event, replay):
+            replay.engine_events = list()
+
+        def handleTestEvent(self, event, replay):
+            replay.engine_events.append(event)
+
+        def handlePluginExit(self, event, replay):
+            yield TestGameEngine.TestEvent('e')
+
+        def handleEndGame(self, event, replay):
+            yield TestGameEngine.TestEvent('f')
+
+    class MockReplay(object):
+        def __init__(self, events):
+            self.events = events
+
+    def test_plugin1(self):
+        engine = sc2reader.engine.GameEngine()
+        engine.register_plugin(self.TestPlugin1())
+        engine.register_plugin(self.TestPlugin2())
+        replay = self.MockReplay([self.TestEvent('a')])
+        engine.run(replay)
+        self.assertEqual(''.join(str(e) for e in replay.engine_events), 'bdecaf')
+        self.assertEqual(replay.plugin_failures, ['TestPlugin1'])
+        self.assertEqual(replay.plugin_result['TestPlugin1'], (1, dict(msg="Fail!")))
+        self.assertEqual(replay.plugin_result['TestPlugin2'], (0, dict()))
+
 
 
     def test_creepTracker(self):
